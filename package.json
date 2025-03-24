@@ -32,16 +32,16 @@
     "primereact",
     "tailwindcss"
   ],
-  "author": "Your Name",
+  "author": "shashwath1278",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/create-ui-app-cli.git"
+    "url": "https://github.com/shashwath1278/reactify-ui.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/create-ui-app-cli/issues"
+    "url": "https://github.com/shashwath1278/reactify-ui/issues"
   },
-  "homepage": "https://github.com/yourusername/create-ui-app-cli#readme",
+  "homepage": "https://github.com/shashwath1278/reactify-ui#readme",
   "files": [
     "dist",
     "presets"
