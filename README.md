@@ -115,7 +115,7 @@ my-app/
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/create-ui-app-cli.git
+git clone https://github.com/shashwath1278/reactify-ui
 
 # Install dependencies
 npm install
@@ -142,12 +142,5 @@ npm test
 
 ## 📄 License
 
-MIT © [Your Name]
+MIT © shashwath1278
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a pull request
