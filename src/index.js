@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const inquirer = require("inquirer");
 
-// Fix path resolution
+
 const __dirname = process.cwd();
 const presetsDirPath = path.join(path.dirname(process.argv[1]), 'presets');
 
@@ -33,7 +33,7 @@ async function run() {
 
   if (!presetType) {
     try {
-      // Use plain inquirer without .default
+     
       const answer = await inquirer.prompt([
         { 
           type: "list", 
@@ -45,7 +45,6 @@ async function run() {
       presetType = answer.preset;
     } catch (error) {
       console.error("❌ Error with prompt:", error);
-      // Fallback to first preset if prompt fails
       presetType = Object.keys(dependencies)[0];
       console.log(`Falling back to default preset: ${presetType}`);
     }
@@ -59,14 +58,11 @@ async function run() {
   console.log(`🚀 Creating project: ${projectName}`);
   execSync(`npm create vite@latest ${projectName} -- --template react`, { stdio: "inherit" });
 
-  // ✅ Ensure we delay injection until project scaffolding is ready
   try {
     const projectPath = path.join(process.cwd(), projectName);
     
-    // Wait for project creation to complete
-    await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Get the correct path to presets directory
+
     const appTemplatePath = path.join(presetsDirPath, `${presetType}.jsx`);
     
     console.log('📁 Looking for preset at:', appTemplatePath);
@@ -78,7 +74,6 @@ async function run() {
     const appTemplate = fs.readFileSync(appTemplatePath, 'utf-8');
     const targetAppFile = path.join(projectPath, 'src', 'App.jsx');
     
-    // Ensure src directory exists
     if (!fs.existsSync(path.dirname(targetAppFile))) {
       throw new Error('Project structure not created properly');
     }
@@ -86,7 +81,6 @@ async function run() {
     fs.writeFileSync(targetAppFile, appTemplate);
     console.log(`✅ Injected ${presetType} template into App.jsx`);
 
-    // Framework-specific configurations
     switch(presetType) {
       case "shadeflow":
         injectShadeflowConfig(projectPath);
@@ -108,7 +102,6 @@ async function run() {
         break;
     }
 
-    // Install dependencies with --legacy-peer-deps
     console.log(`✅ Installing dependencies for preset: ${presetType}`);
     execSync(`npm install ${dependencies[presetType].join(" ")} --legacy-peer-deps`, {
       cwd: projectPath,
@@ -125,7 +118,6 @@ async function run() {
 }
 
 function injectShadeflowConfig(projectPath) {
-  // Tailwind CSS config
   const tailwindConfig = path.join(projectPath, "tailwind.config.cjs");
   fs.writeFileSync(tailwindConfig, `/** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -139,7 +131,6 @@ module.exports = {
   plugins: [],
 }`);
 
-  // PostCSS config
   const postcssConfig = path.join(projectPath, "postcss.config.cjs");
   fs.writeFileSync(postcssConfig, `module.exports = {
   plugins: {
@@ -148,7 +139,6 @@ module.exports = {
   },
 }`);
 
-  // Vite config
   const viteConfig = path.join(projectPath, "vite.config.js");
   fs.writeFileSync(viteConfig, `import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -162,7 +152,6 @@ export default defineConfig({
 });
 `);
 
-  // Main CSS with Tailwind directives
   const indexCss = path.join(projectPath, "src", "index.css");
   fs.writeFileSync(indexCss, `@tailwind base;
 @tailwind components;
@@ -172,11 +161,11 @@ export default defineConfig({
 }
 
 function injectBootstrapConfig(projectPath) {
-  // Main CSS
+
   const indexCss = path.join(projectPath, "src", "index.css");
   fs.writeFileSync(indexCss, "@import 'bootstrap/dist/css/bootstrap.min.css';\n");
   
-  // Bootstrap custom config
+
   const bootstrapConfig = path.join(projectPath, "src", "custom.scss");
   fs.writeFileSync(bootstrapConfig, `// Override Bootstrap variables here
 $primary: #007bff;
@@ -188,15 +177,14 @@ $secondary: #6c757d;
 }
 
 function injectPrimeReactConfig(projectPath) {
-  // Main CSS
+
   const indexCss = path.join(projectPath, "src", "index.css");
   fs.writeFileSync(indexCss, 
     `@import 'primereact/resources/themes/lara-light-indigo/theme.css';\n` +
     `@import 'primereact/resources/primereact.min.css';\n` +
     `@import 'primeicons/primeicons.css';\n`
   );
-  
-  // PrimeReact config
+
   const primeConfig = path.join(projectPath, "src", "prime-config.js");
   fs.writeFileSync(primeConfig, `import { PrimeReactProvider } from 'primereact/api';
 
@@ -215,11 +203,10 @@ export const PrimeConfig = ({ children }) => {
 }
 
 function injectAntConfig(projectPath) {
-  // Main CSS
+
   const indexCss = path.join(projectPath, "src", "index.css");
   fs.writeFileSync(indexCss, `@import 'antd/dist/reset.css';\n`); // Correct CSS import
 
-  // Ant Design theme config
   const themeConfig = path.join(projectPath, "src", "theme.config.js");
   fs.writeFileSync(themeConfig, `export const theme = {
   token: {
@@ -238,7 +225,6 @@ function injectAntConfig(projectPath) {
 }
 
 function injectMUIConfig(projectPath) {
-  // MUI theme config
   const themeConfig = path.join(projectPath, "src", "theme.js");
   fs.writeFileSync(themeConfig, `import { createTheme } from '@mui/material/styles';
 
@@ -260,7 +246,6 @@ export const theme = createTheme({
 }
 
 function injectChakraConfig(projectPath) {
-  // Update main.jsx with proper initialization
   const mainJsx = path.join(projectPath, "src", "main.jsx");
   fs.writeFileSync(mainJsx, `import React from 'react'
 import ReactDOM from 'react-dom/client'
@@ -277,7 +262,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>,
 )`);
 
-  // Add theme configuration
   const themeFile = path.join(projectPath, "src", "theme.js");
   fs.writeFileSync(themeFile, `import { extendTheme } from '@chakra-ui/react'
 
@@ -297,7 +281,6 @@ export const theme = extendTheme({
   }
 })`);
 
-  // Ensure index.css exists but is empty (Chakra handles styling)
   const indexCss = path.join(projectPath, "src", "index.css");
   fs.writeFileSync(indexCss, "");
 
