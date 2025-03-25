@@ -1,6 +1,7 @@
 # Create UI App CLI
 
 A powerful CLI tool that generates React applications with pre-configured UI libraries and stunning templates. Skip the boilerplate and start building beautiful UIs instantly.
+It is published on NPM and can be installed globally on any machine terminal.
 
 ## 🌟 Features
 
@@ -23,6 +24,8 @@ A powerful CLI tool that generates React applications with pre-configured UI lib
   - Built with Vite or Next.js for lightning-fast development
 
 ## ⚡ Quick Use (No git cloning required)
+
+Just go to your editor(vs code) terminal and use these commands
 
 ```bash
 # Install globally
