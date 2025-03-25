@@ -4,6 +4,10 @@ A powerful CLI tool that generates React applications with pre-configured UI lib
 
 ## 🌟 Features
 
+- **Language Support**
+  - JavaScript (React)
+  - TypeScript (React + TypeScript)
+  
 - **Six Popular UI Libraries**
   - Chakra UI (chakraflow)
   - Tailwind CSS + ShadCN (shadeflow)
@@ -24,10 +28,10 @@ A powerful CLI tool that generates React applications with pre-configured UI lib
 # Install globally
 npm install -g create-ui-app-cli
 
-# Create a new project
+# Create a new project (interactive mode)
 create-ui-app my-app
 
-# Or specify a preset
+# Or specify a preset (will prompt for language choice)
 create-ui-app my-app chakraflow
 ```
 
@@ -36,6 +40,10 @@ create-ui-app my-app chakraflow
 ```bash
 # Create a new project
 create-ui-app my-app
+
+# Select your preferred language
+# - JavaScript
+# - TypeScript
 
 # Select your preferred UI library
 # ... interactive prompt appears ...
@@ -70,13 +78,14 @@ create-ui-app-cli/
 Generated Project Structure:
 my-app/
 ├── src/
-│   ├── App.jsx      # Main component with UI library setup
-│   ├── main.jsx     # Entry point
-│   ├── theme.js     # Theme configuration (if applicable)
-│   └── index.css    # Global styles
+│   ├── App.{jsx,tsx}      # Main component with UI library setup
+│   ├── main.{jsx,tsx}     # Entry point
+│   ├── theme.{js,ts}      # Theme configuration (if applicable)
+│   └── index.css          # Global styles
 ├── public/
 ├── package.json
-└── vite.config.js
+├── vite.config.{js,ts}
+└── tsconfig.json          # TypeScript configuration (if TypeScript selected)
 ```
 
 ## 🎨 Available Presets
@@ -115,7 +124,7 @@ my-app/
 
 ```bash
 # Clone the repository
-git clone https://github.com/shashwath1278/reactify-ui
+git clone https://github.com/yourusername/create-ui-app-cli.git
 
 # Install dependencies
 npm install
@@ -142,5 +151,12 @@ npm test
 
 ## 📄 License
 
-MIT © shashwath1278
+MIT © [Your Name]
 
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a pull request

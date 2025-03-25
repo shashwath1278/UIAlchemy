@@ -1,6 +1,6 @@
 {
   "name": "create-ui-app-cli",
-  "version": "1.0.4",
+  "version": "2.0.0",
   "description": "CLI tool to create React apps with popular UI libraries",
   "type": "commonjs",
   "bin": {
@@ -32,16 +32,16 @@
     "primereact",
     "tailwindcss"
   ],
-  "author": "shashwath1278",
+  "author": "Your Name",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/shashwath1278/reactify-ui.git"
+    "url": "https://github.com/yourusername/create-ui-app-cli.git"
   },
   "bugs": {
-    "url": "https://github.com/shashwath1278/reactify-ui/issues"
+    "url": "https://github.com/yourusername/create-ui-app-cli/issues"
   },
-  "homepage": "https://github.com/shashwath1278/reactify-ui#readme",
+  "homepage": "https://github.com/yourusername/create-ui-app-cli#readme",
   "files": [
     "dist",
     "presets"

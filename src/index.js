@@ -24,6 +24,7 @@ const dependencies = {
 const args = process.argv.slice(2);
 const projectName = args[0];
 let presetType = args[1];
+let language = args[2];
 
 async function run() {
   if (!projectName) {
@@ -31,22 +32,40 @@ async function run() {
     process.exit(1);
   }
 
+  // ALL USER PROMPTS GROUPED TOGETHER - this is important for the CLI flow
+  const prompts = [];
+  
+  // Language prompt
+  if (!language) {
+    prompts.push({
+      type: "list",
+      name: "language",
+      message: "Select your preferred language:",
+      choices: ["javascript", "typescript"]
+    });
+  }
+  
+  // UI Stack prompt
   if (!presetType) {
+    prompts.push({ 
+      type: "list", 
+      name: "preset", 
+      message: "Pick a UI Stack:", 
+      choices: Object.keys(dependencies) 
+    });
+  }
+  
+  // Execute all prompts together if we have any
+  if (prompts.length > 0) {
     try {
-     
-      const answer = await inquirer.prompt([
-        { 
-          type: "list", 
-          name: "preset", 
-          message: "Pick a UI Stack:", 
-          choices: Object.keys(dependencies) 
-        }
-      ]);
-      presetType = answer.preset;
+      const answers = await inquirer.prompt(prompts);
+      if (answers.language) language = answers.language;
+      if (answers.preset) presetType = answers.preset;
     } catch (error) {
-      console.error("❌ Error with prompt:", error);
-      presetType = Object.keys(dependencies)[0];
-      console.log(`Falling back to default preset: ${presetType}`);
+      console.error("❌ Error with prompts:", error);
+      language = language || "javascript";
+      presetType = presetType || Object.keys(dependencies)[0];
+      console.log(`Falling back to defaults: ${language}, ${presetType}`);
     }
   }
 
@@ -55,14 +74,20 @@ async function run() {
     process.exit(1);
   }
 
-  console.log(`🚀 Creating project: ${projectName}`);
-  execSync(`npm create vite@latest ${projectName} -- --template react`, { stdio: "inherit" });
+  console.log(`🚀 Creating ${language} project: ${projectName}`);
+  
+  // Use language template for Vite
+  const template = language === "typescript" ? "react-ts" : "react";
+  try {
+    execSync(`npm create vite@latest ${projectName} -- --template ${template}`, { stdio: "inherit" });
+  } catch (error) {
+    console.error(`❌ Error creating Vite project: ${error.message}`);
+    process.exit(1);
+  }
 
   try {
     const projectPath = path.join(process.cwd(), projectName);
     
-    
-
     const appTemplatePath = path.join(presetsDirPath, `${presetType}.jsx`);
     
     console.log('📁 Looking for preset at:', appTemplatePath);
@@ -72,33 +97,35 @@ async function run() {
     }
 
     const appTemplate = fs.readFileSync(appTemplatePath, 'utf-8');
-    const targetAppFile = path.join(projectPath, 'src', 'App.jsx');
+    // Use proper file extension based on language
+    const fileExt = language === "typescript" ? ".tsx" : ".jsx";
+    const targetAppFile = path.join(projectPath, 'src', `App${fileExt}`);
     
     if (!fs.existsSync(path.dirname(targetAppFile))) {
       throw new Error('Project structure not created properly');
     }
 
     fs.writeFileSync(targetAppFile, appTemplate);
-    console.log(`✅ Injected ${presetType} template into App.jsx`);
+    console.log(`✅ Injected ${presetType} template into App${fileExt}`);
 
     switch(presetType) {
       case "shadeflow":
-        injectShadeflowConfig(projectPath);
+        injectShadeflowConfig(projectPath, language);
         break;
       case "bootflow":
-        injectBootstrapConfig(projectPath);
+        injectBootstrapConfig(projectPath, language);
         break;
       case "primeland":
-        injectPrimeReactConfig(projectPath);
+        injectPrimeReactConfig(projectPath, language);
         break;
       case "antverse":
-        injectAntConfig(projectPath);
+        injectAntConfig(projectPath, language);
         break;
       case "muitopia":
-        injectMUIConfig(projectPath);
+        injectMUIConfig(projectPath, language);
         break;
       case "chakraflow":
-        injectChakraConfig(projectPath);
+        injectChakraConfig(projectPath, language);
         break;
     }
 
@@ -117,7 +144,7 @@ async function run() {
   }
 }
 
-function injectShadeflowConfig(projectPath) {
+function injectShadeflowConfig(projectPath, language) {
   const tailwindConfig = path.join(projectPath, "tailwind.config.cjs");
   fs.writeFileSync(tailwindConfig, `/** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -139,7 +166,9 @@ module.exports = {
   },
 }`);
 
-  const viteConfig = path.join(projectPath, "vite.config.js");
+  // Add proper file extension based on language
+  const fileExt = language === "typescript" ? ".ts" : ".js";
+  const viteConfig = path.join(projectPath, `vite.config${fileExt}`);
   fs.writeFileSync(viteConfig, `import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -160,7 +189,7 @@ export default defineConfig({
   console.log("✅ Tailwind CSS and Shadeflow configuration files injected successfully");
 }
 
-function injectBootstrapConfig(projectPath) {
+function injectBootstrapConfig(projectPath, language) {
 
   const indexCss = path.join(projectPath, "src", "index.css");
   fs.writeFileSync(indexCss, "@import 'bootstrap/dist/css/bootstrap.min.css';\n");
@@ -176,7 +205,7 @@ $secondary: #6c757d;
   console.log("✅ Bootstrap configuration created");
 }
 
-function injectPrimeReactConfig(projectPath) {
+function injectPrimeReactConfig(projectPath, language) {
 
   const indexCss = path.join(projectPath, "src", "index.css");
   fs.writeFileSync(indexCss, 
@@ -185,8 +214,29 @@ function injectPrimeReactConfig(projectPath) {
     `@import 'primeicons/primeicons.css';\n`
   );
 
-  const primeConfig = path.join(projectPath, "src", "prime-config.js");
-  fs.writeFileSync(primeConfig, `import { PrimeReactProvider } from 'primereact/api';
+  // Add proper file extension based on language
+  const fileExt = language === "typescript" ? ".tsx" : ".js";
+  const primeConfig = path.join(projectPath, "src", `prime-config${fileExt}`);
+  
+  const configContent = language === "typescript" 
+    ? `import { PrimeReactProvider } from 'primereact/api';
+import React, { ReactNode } from 'react';
+
+interface PrimeConfigProps {
+  children: ReactNode;
+}
+
+export const PrimeConfig = ({ children }: PrimeConfigProps) => {
+  const value = {
+    ripple: true,
+    inputStyle: 'filled',
+    buttonStyle: 'raised',
+    locale: 'en'
+  };
+  
+  return <PrimeReactProvider value={value}>{children}</PrimeReactProvider>;
+};`
+    : `import { PrimeReactProvider } from 'primereact/api';
 
 export const PrimeConfig = ({ children }) => {
   const value = {
@@ -197,17 +247,21 @@ export const PrimeConfig = ({ children }) => {
   };
   
   return <PrimeReactProvider value={value}>{children}</PrimeReactProvider>;
-};`);
+};`;
+
+  fs.writeFileSync(primeConfig, configContent);
 
   console.log("✅ PrimeReact configuration created");
 }
 
-function injectAntConfig(projectPath) {
+function injectAntConfig(projectPath, language) {
 
   const indexCss = path.join(projectPath, "src", "index.css");
   fs.writeFileSync(indexCss, `@import 'antd/dist/reset.css';\n`); // Correct CSS import
 
-  const themeConfig = path.join(projectPath, "src", "theme.config.js");
+  // Add proper file extension based on language
+  const fileExt = language === "typescript" ? ".ts" : ".js";
+  const themeConfig = path.join(projectPath, "src", `theme.config${fileExt}`);
   fs.writeFileSync(themeConfig, `export const theme = {
   token: {
     colorPrimary: '#1890ff',
@@ -224,8 +278,10 @@ function injectAntConfig(projectPath) {
   console.log("✅ Ant Design configuration created");
 }
 
-function injectMUIConfig(projectPath) {
-  const themeConfig = path.join(projectPath, "src", "theme.js");
+function injectMUIConfig(projectPath, language) {
+  // Add proper file extension based on language
+  const fileExt = language === "typescript" ? ".ts" : ".js";
+  const themeConfig = path.join(projectPath, "src", `theme${fileExt}`);
   fs.writeFileSync(themeConfig, `import { createTheme } from '@mui/material/styles';
 
 export const theme = createTheme({
@@ -245,15 +301,18 @@ export const theme = createTheme({
   console.log("✅ MUI configuration created");
 }
 
-function injectChakraConfig(projectPath) {
-  const mainJsx = path.join(projectPath, "src", "main.jsx");
-  fs.writeFileSync(mainJsx, `import React from 'react'
+function injectChakraConfig(projectPath, language) {
+  // Use proper file extension based on language
+  const fileExt = language === "typescript" ? ".tsx" : ".jsx";
+  const mainFile = path.join(projectPath, "src", `main${fileExt}`);
+  
+  fs.writeFileSync(mainFile, `import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { ChakraProvider, ColorModeScript } from '@chakra-ui/react'
 import { theme } from './theme'
 import App from './App'
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ColorModeScript />
     <ChakraProvider theme={theme}>
@@ -262,7 +321,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>,
 )`);
 
-  const themeFile = path.join(projectPath, "src", "theme.js");
+  // Add proper file extension based on language
+  const themeFileExt = language === "typescript" ? ".ts" : ".js";
+  const themeFile = path.join(projectPath, "src", `theme${themeFileExt}`);
   fs.writeFileSync(themeFile, `import { extendTheme } from '@chakra-ui/react'
 
 export const theme = extendTheme({
