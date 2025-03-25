@@ -22,6 +22,16 @@ A powerful CLI tool that generates React applications with pre-configured UI lib
   - Automatic dependency installation
   - Built with Vite or Next.js for lightning-fast development
 
+## ⚡ Quick Use (No git cloning required)
+
+```bash
+# Install globally
+npm install -g create-ui-app-cli
+
+# Create a new project
+create-ui-app my-app
+```
+
 ## 📦 Installation
 
 ```bash
