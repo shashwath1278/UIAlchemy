@@ -39,10 +39,10 @@ create-ui-app my-app
 
 ```bash
 # Clone the repository
-git clone https://github.com/shashwath1278/reactify-ui.git
+git clone https://github.com/shashwath1278/UIAlchemy.git
 
 # Install dependencies
-cd reactify-ui
+cd UIAlchemy
 npm install
 
 # Link the CLI for global usage
@@ -53,10 +53,10 @@ npm link
 
 ```bash
 # Create a new project (interactive mode)
-ui-cli my-app
+create-ui-app my-app
 
 # Or specify all options directly
-ui-cli my-app chakraflow javascript next
+create-ui-app my-app chakraflow javascript next
 
 # Navigate to project
 cd my-app
@@ -134,7 +134,7 @@ my-app/
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/create-ui-app-cli.git
+git clone https://github.com/shashwath1278/UIAlchemy.git
 
 # Install dependencies
 npm install
