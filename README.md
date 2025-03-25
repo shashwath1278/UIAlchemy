@@ -11,7 +11,6 @@ A powerful CLI tool for quickly scaffolding React or Next.js applications with p
 - Multiple UI library presets:
   - **Shadeflow**: Tailwind CSS with clean modern design
   - **Daisyworld**: Tailwind CSS + DaisyUI components
-  - **Muitopia**: Material UI design system
   - **Antverse**: Ant Design components
   - **Bootflow**: React Bootstrap integration
   - **Chakraflow**: Chakra UI components
