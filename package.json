@@ -1,6 +1,6 @@
 {
   "name": "create-ui-app-cli",
-  "version": "2.0.0",
+  "version": "1.0.4",
   "description": "CLI tool to create React apps with popular UI libraries",
   "type": "commonjs",
   "bin": {
@@ -15,11 +15,12 @@
   "scripts": {
     "clean": "if exist dist rd /s /q dist",
     "make-dist": "if not exist dist mkdir dist",
-    "build": "npm run clean && npm run make-dist && esbuild src/index.js --bundle --platform=node --format=cjs --outfile=dist/cli.js --external:create-ui-app-cli/package.json && node scripts/fix-shebang.js && npm run copy-presets",
+    "build": "npm run make-dist && esbuild src/index.js --bundle --platform=node --format=cjs --outfile=dist/cli.js && node scripts/fix-shebang.js && npm run copy-presets",
     "copy-presets": "node scripts/copy-presets.js",
     "test": "node test-runner.js",
-    "setup": "npm cache clean --force && npm install && npm run build && npm uninstall -g create-ui-app-cli && npm link",
-    "reset": "rd /s /q node_modules 2>nul & rd /s /q dist 2>nul & npm run setup"
+    "setup": "npm install && npm run build && npm uninstall -g create-ui-app-cli && npm link",
+    "reset": "npm run clean && npm run setup",
+    "install-global": "npm uninstall -g create-ui-app-cli && npm install -g ."
   },
   "keywords": [
     "react",

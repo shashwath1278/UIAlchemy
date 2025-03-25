@@ -32615,6 +32615,102 @@ var require_inquirer = __commonJS({
   }
 });
 
+// src/helpers.js
+var require_helpers = __commonJS({
+  "src/helpers.js"(exports2, module2) {
+    function fixContainerIssues(template) {
+      return template.replace(
+        /className="([^"]*)container([^"]*)"/g,
+        'className="$1$2" style={{width: "100%", maxWidth: "1280px", margin: "0 auto", padding: "0 1rem"}}'
+      );
+    }
+    function ensureFullWidth(template) {
+      return template.replace(
+        /<div className="([^"]*)(bg-[^"]*|py-[^"]*|flex[^"]*)([^"]*)"/g,
+        '<div className="$1$2$3" style={{width: "100%"}}"'
+      );
+    }
+    function processMUITemplate(template) {
+      return template.replace(
+        /<div className="([^"]*)max-w-[^"]*([^"]*)"/g,
+        '<div className="$1$2"'
+      );
+    }
+    function processTemplateForLayout(template) {
+      let processed = template;
+      processed = fixContainerIssues(processed);
+      processed = ensureFullWidth(processed);
+      return processed;
+    }
+    function processTemplateForNextJs(appTemplate, presetType2) {
+      const importRegex = /import\s+.*?['"];?(\r?\n|\r)/g;
+      const imports = [];
+      let match;
+      let cleanedTemplate = appTemplate;
+      while ((match = importRegex.exec(appTemplate)) !== null) {
+        imports.push(match[0]);
+        cleanedTemplate = cleanedTemplate.replace(match[0], "");
+      }
+      let additionalCode = "";
+      if (presetType2 === "antverse") {
+        const layoutDestructuringRegex = /const\s*{\s*([^}]+)\s*}\s*=\s*Layout;?/;
+        const layoutMatch = layoutDestructuringRegex.exec(cleanedTemplate);
+        if (layoutMatch && layoutMatch[1]) {
+          additionalCode = `const { ${layoutMatch[1]} } = Layout;
+
+`;
+        }
+        const hasIconImports = imports.some((imp) => imp.includes("@ant-design/icons"));
+        if (!hasIconImports) {
+          const iconImportRegex = /import\s+{([^}]+)}\s+from\s+['"]@ant-design\/icons['"];?/;
+          const iconMatch = iconImportRegex.exec(appTemplate);
+          if (iconMatch && iconMatch[1]) {
+            imports.push(`import { ${iconMatch[1]} } from '@ant-design/icons';
+`);
+          }
+        }
+      }
+      if (presetType2 === "muitopia") {
+        cleanedTemplate = processMUITemplate(cleanedTemplate);
+        returnBody = processMUITemplate(returnBody);
+        imports.push("import { ThemeProvider } from '@mui/material/styles';\n");
+        imports.push("import CssBaseline from '@mui/material/CssBaseline';\n");
+        imports.push("import { theme } from '../../theme';\n");
+        returnBody = `<ThemeProvider theme={theme}>
+      <CssBaseline />
+      ${returnBody}
+    </ThemeProvider>`;
+      }
+      const appBodyRegex = /function\s+App\s*\(\s*\)\s*\{([\s\S]*?)return\s*\(([\s\S]*?)\);\s*\}/;
+      const appBodyMatch = appBodyRegex.exec(cleanedTemplate);
+      let componentBody = "";
+      let returnBody = "";
+      if (appBodyMatch && appBodyMatch.length >= 3) {
+        componentBody = appBodyMatch[1].trim();
+        returnBody = appBodyMatch[2].trim();
+      } else {
+        const returnRegex = /return\s*\(([\s\S]*?)\);/;
+        const returnMatch = returnRegex.exec(cleanedTemplate);
+        if (returnMatch && returnMatch.length >= 2) {
+          returnBody = returnMatch[1].trim();
+        } else {
+          returnBody = "/* Template conversion failed - please check the template */";
+        }
+      }
+      return `'use client';
+
+` + // Include all the imports
+      imports.join("") + "\n\n" + // Add any additional code needed
+      additionalCode + "export default function Home() {\n" + (componentBody ? `  ${componentBody}
+` : "") + "  return (\n    " + returnBody + "\n  );\n}";
+    }
+    module2.exports = {
+      processTemplateForLayout,
+      processTemplateForNextJs
+    };
+  }
+});
+
 // src/index.js
 var { execSync } = require("child_process");
 var fs = require("fs");
@@ -32630,7 +32726,7 @@ var dependencies = {
     "framer-motion@10.18.0"
   ],
   shadeflow: ["tailwindcss@3.4.1", "postcss@8.4.35", "autoprefixer@10.4.17"],
-  muitopia: ["@mui/material", "@emotion/react", "@emotion/styled", "@mui/icons-material"],
+  daisyui: ["tailwindcss@3.4.1", "postcss@8.4.35", "autoprefixer@10.4.17", "daisyui@4.4.19"],
   antverse: ["antd", "@ant-design/icons"],
   bootflow: ["react-bootstrap", "bootstrap"],
   primeland: ["primereact", "primeicons"]
@@ -32639,12 +32735,21 @@ var args = process.argv.slice(2);
 var projectName = args[0];
 var presetType = args[1];
 var language = args[2];
+var framework = args[3];
 async function run() {
   if (!projectName) {
     console.log("\u274C Please provide a project name");
     process.exit(1);
   }
   const prompts = [];
+  if (!framework) {
+    prompts.push({
+      type: "list",
+      name: "framework",
+      message: "Select your preferred framework:",
+      choices: ["react", "next"]
+    });
+  }
   if (!language) {
     prompts.push({
       type: "list",
@@ -32664,25 +32769,32 @@ async function run() {
   if (prompts.length > 0) {
     try {
       const answers = await inquirer.prompt(prompts);
+      if (answers.framework) framework = answers.framework;
       if (answers.language) language = answers.language;
       if (answers.preset) presetType = answers.preset;
     } catch (error) {
       console.error("\u274C Error with prompts:", error);
+      framework = framework || "react";
       language = language || "javascript";
       presetType = presetType || Object.keys(dependencies)[0];
-      console.log(`Falling back to defaults: ${language}, ${presetType}`);
+      console.log(`Falling back to defaults: ${framework}, ${language}, ${presetType}`);
     }
   }
   if (!dependencies[presetType]) {
     console.log(`\u274C Invalid preset. Available: ${Object.keys(dependencies).join(", ")}`);
     process.exit(1);
   }
-  console.log(`\u{1F680} Creating ${language} project: ${projectName}`);
-  const template = language === "typescript" ? "react-ts" : "react";
+  console.log(`\u{1F680} Creating ${framework} project with ${language}: ${projectName}`);
   try {
-    execSync(`npm create vite@latest ${projectName} -- --template ${template}`, { stdio: "inherit" });
+    if (framework === "next") {
+      const typeFlag = language === "typescript" ? "--ts" : "--js";
+      execSync(`npx create-next-app@latest ${projectName} ${typeFlag} --eslint --app --src-dir --import-alias "@/*"`, { stdio: "inherit" });
+    } else {
+      const template = language === "typescript" ? "react-ts" : "react";
+      execSync(`npm create vite@latest ${projectName} -- --template ${template}`, { stdio: "inherit" });
+    }
   } catch (error) {
-    console.error(`\u274C Error creating Vite project: ${error.message}`);
+    console.error(`\u274C Error creating ${framework} project: ${error.message}`);
     process.exit(1);
   }
   try {
@@ -32693,38 +32805,103 @@ async function run() {
       throw new Error(`Template not found at ${appTemplatePath}`);
     }
     const appTemplate = fs.readFileSync(appTemplatePath, "utf-8");
-    const fileExt = language === "typescript" ? ".tsx" : ".jsx";
-    const targetAppFile = path.join(projectPath, "src", `App${fileExt}`);
-    if (!fs.existsSync(path.dirname(targetAppFile))) {
-      throw new Error("Project structure not created properly");
-    }
-    fs.writeFileSync(targetAppFile, appTemplate);
-    console.log(`\u2705 Injected ${presetType} template into App${fileExt}`);
-    switch (presetType) {
-      case "shadeflow":
-        injectShadeflowConfig(projectPath, language);
-        break;
-      case "bootflow":
-        injectBootstrapConfig(projectPath, language);
-        break;
-      case "primeland":
-        injectPrimeReactConfig(projectPath, language);
-        break;
-      case "antverse":
-        injectAntConfig(projectPath, language);
-        break;
-      case "muitopia":
-        injectMUIConfig(projectPath, language);
-        break;
-      case "chakraflow":
-        injectChakraConfig(projectPath, language);
-        break;
-    }
     console.log(`\u2705 Installing dependencies for preset: ${presetType}`);
     execSync(`npm install ${dependencies[presetType].join(" ")} --legacy-peer-deps`, {
       cwd: projectPath,
       stdio: "inherit"
     });
+    let targetAppFile;
+    if (framework === "next") {
+      const fileExt = language === "typescript" ? ".tsx" : ".jsx";
+      const appDir = path.join(projectPath, "src", "app");
+      targetAppFile = path.join(appDir, `page${fileExt}`);
+      let nextTemplate;
+      try {
+        const helpers = require_helpers();
+        nextTemplate = helpers.processTemplateForNextJs(appTemplate, presetType);
+      } catch (error) {
+        console.log("\u26A0\uFE0F Helper module not found, using inline conversion");
+        const importRegex = /import\s+.*?['"];?(\r?\n|\r)/g;
+        const imports = [];
+        let match;
+        let cleanedTemplate = appTemplate;
+        while ((match = importRegex.exec(appTemplate)) !== null) {
+          imports.push(match[0]);
+          cleanedTemplate = cleanedTemplate.replace(match[0], "");
+        }
+        let specialCode = "";
+        if (presetType === "antverse") {
+          const layoutDestructuringRegex = /const\s*{\s*([^}]+)\s*}\s*=\s*Layout;?/;
+          const layoutMatch = layoutDestructuringRegex.exec(cleanedTemplate);
+          if (layoutMatch && layoutMatch[1]) {
+            specialCode = `const { ${layoutMatch[1]} } = Layout;
+
+`;
+          }
+          const hasIconImports = imports.some((imp) => imp.includes("@ant-design/icons"));
+          if (!hasIconImports) {
+            const iconImportRegex = /import\s+{([^}]+)}\s+from\s+['"]@ant-design\/icons['"];?/;
+            const iconMatch = iconImportRegex.exec(appTemplate);
+            if (iconMatch && iconMatch[1]) {
+              imports.push(`import { ${iconMatch[1]} } from '@ant-design/icons';
+`);
+            }
+          }
+        }
+        const appBodyRegex = /function\s+App\s*\(\s*\)\s*\{([\s\S]*?)return\s*\(([\s\S]*?)\);\s*\}/;
+        const appBodyMatch = appBodyRegex.exec(cleanedTemplate);
+        let componentBody = "";
+        let returnBody = "";
+        if (appBodyMatch && appBodyMatch.length >= 3) {
+          componentBody = appBodyMatch[1].trim();
+          returnBody = appBodyMatch[2].trim();
+        } else {
+          const returnRegex = /return\s*\(([\s\S]*?)\);/;
+          const returnMatch = returnRegex.exec(cleanedTemplate);
+          if (returnMatch && returnMatch.length >= 2) {
+            returnBody = returnMatch[1].trim();
+          } else {
+            returnBody = "/* Template conversion failed - please check the template */";
+          }
+        }
+        nextTemplate = `'use client';
+
+` + // Include all the imports
+        imports.join("") + "\n\n" + // Add special code like Layout destructuring if needed
+        (specialCode ? specialCode : "") + "export default function Home() {\n" + (componentBody ? `  ${componentBody}
+` : "") + "  return (\n    " + returnBody + "\n  );\n}";
+      }
+      fs.writeFileSync(targetAppFile, nextTemplate);
+      console.log(`\u2705 Injected ${presetType} template into Next.js page${fileExt}`);
+    } else {
+      const fileExt = language === "typescript" ? ".tsx" : ".jsx";
+      targetAppFile = path.join(projectPath, "src", `App${fileExt}`);
+      if (!fs.existsSync(path.dirname(targetAppFile))) {
+        throw new Error("Project structure not created properly");
+      }
+      fs.writeFileSync(targetAppFile, appTemplate);
+      console.log(`\u2705 Injected ${presetType} template into App${fileExt}`);
+    }
+    switch (presetType) {
+      case "shadeflow":
+        injectShadeflowConfig(projectPath, language, framework);
+        break;
+      case "bootflow":
+        injectBootstrapConfig(projectPath, language, framework);
+        break;
+      case "primeland":
+        injectPrimeReactConfig(projectPath, language, framework);
+        break;
+      case "antverse":
+        injectAntConfig(projectPath, language, framework);
+        break;
+      case "daisyui":
+        injectDaisyUIConfig(projectPath, language, framework);
+        break;
+      case "chakraflow":
+        injectChakraConfig(projectPath, language, framework);
+        break;
+    }
     console.log("\u{1F389} Done! Now run:");
     console.log(`cd ${projectName}`);
     console.log(`npm run dev`);
@@ -32733,9 +32910,51 @@ async function run() {
     process.exit(1);
   }
 }
-function injectShadeflowConfig(projectPath, language2) {
-  const tailwindConfig = path.join(projectPath, "tailwind.config.cjs");
-  fs.writeFileSync(tailwindConfig, `/** @type {import('tailwindcss').Config} */
+function injectShadeflowConfig(projectPath, language2, framework2) {
+  if (framework2 === "next") {
+    const tailwindConfig = path.join(projectPath, "tailwind.config.js");
+    console.log("\u{1F527} Creating Tailwind CSS configuration for Next.js");
+    fs.writeFileSync(tailwindConfig, `/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}`);
+    const postcssConfig = path.join(projectPath, "postcss.config.js");
+    if (!fs.existsSync(postcssConfig)) {
+      fs.writeFileSync(postcssConfig, `module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}`);
+    }
+    const globalCss = path.join(projectPath, "src", "app", "globals.css");
+    if (fs.existsSync(globalCss)) {
+      const cssContent = fs.readFileSync(globalCss, "utf-8");
+      if (!cssContent.includes("@tailwind base")) {
+        let cleanedContent = cssContent.replace(/@import\s+['"]tailwindcss.*?;/g, "");
+        const tailwindDirectives = `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+`;
+        fs.writeFileSync(globalCss, tailwindDirectives + cleanedContent);
+        console.log("\u2705 Tailwind directives added to globals.css");
+      }
+    } else {
+      console.log("\u26A0\uFE0F globals.css file not found");
+    }
+    console.log("\u2705 Tailwind CSS configuration for Next.js created successfully");
+  } else {
+    const tailwindConfig = path.join(projectPath, "tailwind.config.cjs");
+    fs.writeFileSync(tailwindConfig, `/** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
     "./index.html",
@@ -32746,16 +32965,16 @@ module.exports = {
   },
   plugins: [],
 }`);
-  const postcssConfig = path.join(projectPath, "postcss.config.cjs");
-  fs.writeFileSync(postcssConfig, `module.exports = {
+    const postcssConfig = path.join(projectPath, "postcss.config.cjs");
+    fs.writeFileSync(postcssConfig, `module.exports = {
   plugins: {
     tailwindcss: {},
     autoprefixer: {},
   },
 }`);
-  const fileExt = language2 === "typescript" ? ".ts" : ".js";
-  const viteConfig = path.join(projectPath, `vite.config${fileExt}`);
-  fs.writeFileSync(viteConfig, `import { defineConfig } from 'vite';
+    const fileExt = language2 === "typescript" ? ".ts" : ".js";
+    const viteConfig = path.join(projectPath, `vite.config${fileExt}`);
+    fs.writeFileSync(viteConfig, `import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // https://vite.dev/config/
@@ -32766,15 +32985,34 @@ export default defineConfig({
   },
 });
 `);
-  const indexCss = path.join(projectPath, "src", "index.css");
-  fs.writeFileSync(indexCss, `@tailwind base;
+    const indexCss = path.join(projectPath, "src", "index.css");
+    fs.writeFileSync(indexCss, `@tailwind base;
 @tailwind components;
 @tailwind utilities;`);
+  }
   console.log("\u2705 Tailwind CSS and Shadeflow configuration files injected successfully");
 }
-function injectBootstrapConfig(projectPath, language2) {
-  const indexCss = path.join(projectPath, "src", "index.css");
-  fs.writeFileSync(indexCss, "@import 'bootstrap/dist/css/bootstrap.min.css';\n");
+function injectBootstrapConfig(projectPath, language2, framework2) {
+  if (framework2 === "next") {
+    const globalCss = path.join(projectPath, "src", "app", "globals.css");
+    if (fs.existsSync(globalCss)) {
+      const cssContent = fs.readFileSync(globalCss, "utf-8");
+      if (!cssContent.includes("bootstrap")) {
+        let newContent = cssContent;
+        if (cssContent.includes("@tailwind")) {
+          const tailwindEnd = cssContent.lastIndexOf("@tailwind") + cssContent.substring(cssContent.lastIndexOf("@tailwind")).indexOf(";") + 1;
+          newContent = cssContent.substring(0, tailwindEnd) + "\n@import 'bootstrap/dist/css/bootstrap.min.css';\n" + cssContent.substring(tailwindEnd);
+        } else {
+          newContent = "@import 'bootstrap/dist/css/bootstrap.min.css';\n\n" + cssContent;
+        }
+        fs.writeFileSync(globalCss, newContent);
+        console.log("\u2705 Bootstrap CSS import added to globals.css");
+      }
+    }
+  } else {
+    const indexCss = path.join(projectPath, "src", "index.css");
+    fs.writeFileSync(indexCss, "@import 'bootstrap/dist/css/bootstrap.min.css';\n");
+  }
   const bootstrapConfig = path.join(projectPath, "src", "custom.scss");
   fs.writeFileSync(bootstrapConfig, `// Override Bootstrap variables here
 $primary: #007bff;
@@ -32783,19 +33021,223 @@ $secondary: #6c757d;
 @import '~bootstrap/scss/bootstrap.scss';`);
   console.log("\u2705 Bootstrap configuration created");
 }
-function injectPrimeReactConfig(projectPath, language2) {
-  const indexCss = path.join(projectPath, "src", "index.css");
-  fs.writeFileSync(
-    indexCss,
-    `@import 'primereact/resources/themes/lara-light-indigo/theme.css';
+function injectPrimeReactConfig(projectPath, language2, framework2) {
+  if (framework2 === "next") {
+    const globalCss = path.join(projectPath, "src", "app", "globals.css");
+    if (fs.existsSync(globalCss)) {
+      const newCssContent = `/* Reset styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* PrimeReact Theme Imports */
+@import 'primereact/resources/themes/lara-light-indigo/theme.css';
 @import 'primereact/resources/primereact.min.css';
 @import 'primeicons/primeicons.css';
-`
-  );
-  const fileExt = language2 === "typescript" ? ".tsx" : ".js";
-  const primeConfig = path.join(projectPath, "src", `prime-config${fileExt}`);
+
+/* PrimeReact custom styles */
+:root {
+  --primary-color: #6366F1;
+  --primary-color-hover: #4F46E5;
+  --text-color: #334155;
+  --text-color-secondary: #64748B;
+  --surface-ground: #F8FAFC;
+  --surface-card: #FFFFFF;
+  --surface-border: #E2E8F0;
+  --surface-hover: #F1F5F9;
+}
+
+body {
+  background-color: var(--surface-ground);
+  color: var(--text-color);
+  font-family: var(--font-family);
+}
+
+/* Utility Classes */
+.flex { display: flex !important; }
+.flex-column { flex-direction: column !important; }
+.justify-content-start { justify-content: flex-start !important; }
+.justify-content-between { justify-content: space-between !important; }
+.align-items-center { align-items: center !important; }
+.m-0 { margin: 0 !important; }
+.mb-2 { margin-bottom: 0.5rem !important; }
+.mb-4 { margin-bottom: 1rem !important; }
+.mr-2 { margin-right: 0.5rem !important; }
+.mt-3 { margin-top: 0.75rem !important; }
+.mt-4 { margin-top: 1rem !important; }
+.w-full { width: 100% !important; }
+.border-none { border: none !important; }
+.h-full { height: 100% !important; }
+
+/* Grid System */
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: -0.5rem;
+  margin-left: -0.5rem;
+  margin-top: -0.5rem;
+}
+
+.col-12 { 
+  flex: 0 0 100%; 
+  padding: 0.5rem; 
+  box-sizing: border-box; 
+}
+
+@media screen and (min-width: 768px) {
+  .md\\:col-4 { 
+    flex: 0 0 33.3333%; 
+    padding: 0.5rem; 
+    box-sizing: border-box; 
+  }
+}
+
+/* Layout styles */
+.layout-wrapper {
+  min-height: 100vh;
+  background: linear-gradient(to right bottom, #f8fafc, #eff6ff);
+}
+
+.layout-main {
+  padding: 2rem;
+  width: 100%;
+}
+
+.layout-content {
+  border-radius: 12px;
+  background-color: var(--surface-card);
+  padding: 2rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}`;
+      fs.writeFileSync(globalCss, newCssContent);
+      console.log("\u2705 Created new globals.css file with PrimeReact styling");
+    }
+    const customCssDir = path.join(projectPath, "src", "styles");
+    if (!fs.existsSync(customCssDir)) {
+      fs.mkdirSync(customCssDir, { recursive: true });
+    }
+    const primeCssFile = path.join(customCssDir, "prime-theme.css");
+    fs.writeFileSync(primeCssFile, `/* PrimeReact Custom Theme Overrides */
+
+/* Menu bar styling */
+.p-menubar {
+  background-color: var(--surface-card);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Sidebar styling */
+.p-sidebar .p-sidebar-header {
+  padding: 1.5rem;
+}
+
+.p-sidebar .p-sidebar-content {
+  padding: 0 1.5rem 1.5rem 1.5rem;
+}
+
+/* Section headers */
+.section-header {
+  color: var(--primary-color);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+/* Button improvements */
+.p-button {
+  border-radius: 6px;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.p-button.p-button-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.p-button.p-button-primary:hover {
+  background-color: var(--primary-color-hover);
+  border-color: var(--primary-color-hover);
+}
+
+/* Card improvements */
+.p-card {
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  margin-bottom: 1rem;
+}
+
+.p-card .p-card-title {
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+.p-card .p-card-subtitle {
+  color: var(--text-color-secondary);
+  font-weight: 400;
+}
+
+/* Input styling */
+.p-inputtext {
+  border-radius: 6px;
+}
+
+.p-inputtext:enabled:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color);
+}
+`);
+    try {
+      console.log("\u{1F4E6} Installing PrimeFlex for better layout support...");
+      execSync("npm install primeflex", {
+        cwd: projectPath,
+        stdio: "inherit"
+      });
+    } catch (error) {
+      console.log("\u26A0\uFE0F Could not install PrimeFlex, using custom styles instead");
+    }
+  } else {
+    const indexCss = path.join(projectPath, "src", "index.css");
+    fs.writeFileSync(
+      indexCss,
+      `/* PrimeReact Theme Imports */
+@import 'primereact/resources/themes/lara-light-indigo/theme.css';
+@import 'primereact/resources/primereact.min.css';
+@import 'primeicons/primeicons.css';
+
+/* PrimeReact custom styles */
+:root {
+  --primary-color: #6366F1;
+  --primary-color-hover: #4F46E5;
+  --text-color: #334155;
+  --text-color-secondary: #64748B;
+  --surface-ground: #F8FAFC;
+  --surface-card: #FFFFFF;
+  --surface-border: #E2E8F0;
+  --surface-hover: #F1F5F9;
+}
+
+body {
+  background-color: var(--surface-ground);
+  color: var(--text-color);
+  font-family: var(--font-family);
+  margin: 0;
+  padding: 0;
+}`
+    );
+  }
+  const fileExt = language2 === "typescript" ? ".tsx" : ".jsx";
+  const primeConfigPath = framework2 === "next" ? path.join(projectPath, "src", "components") : path.join(projectPath, "src");
+  if (framework2 === "next" && !fs.existsSync(primeConfigPath)) {
+    fs.mkdirSync(primeConfigPath, { recursive: true });
+  }
+  const primeConfig = path.join(primeConfigPath, `prime-config${fileExt}`);
   const configContent = language2 === "typescript" ? `import { PrimeReactProvider } from 'primereact/api';
 import React, { ReactNode } from 'react';
+${framework2 === "next" ? "import '../styles/prime-theme.css';" : ""}
 
 interface PrimeConfigProps {
   children: ReactNode;
@@ -32811,6 +33253,7 @@ export const PrimeConfig = ({ children }: PrimeConfigProps) => {
   
   return <PrimeReactProvider value={value}>{children}</PrimeReactProvider>;
 };` : `import { PrimeReactProvider } from 'primereact/api';
+${framework2 === "next" ? "import '../styles/prime-theme.css';" : ""}
 
 export const PrimeConfig = ({ children }) => {
   const value = {
@@ -32823,12 +33266,198 @@ export const PrimeConfig = ({ children }) => {
   return <PrimeReactProvider value={value}>{children}</PrimeReactProvider>;
 };`;
   fs.writeFileSync(primeConfig, configContent);
+  if (framework2 === "next") {
+    const providersDir = path.join(projectPath, "src", "app", "providers");
+    if (!fs.existsSync(providersDir)) {
+      fs.mkdirSync(providersDir, { recursive: true });
+    }
+    const primeProviderFile = path.join(providersDir, `prime-provider${fileExt}`);
+    const primeProviderContent = language2 === "typescript" ? `'use client';
+
+import { ReactNode } from 'react';
+import { PrimeConfig } from '../../components/prime-config';
+
+interface PrimeProviderProps {
+  children: ReactNode;
+}
+
+export function PrimeProviders({ children }: PrimeProviderProps) {
+  return <PrimeConfig>{children}</PrimeConfig>;
+}` : `'use client';
+
+import { PrimeConfig } from '../../components/prime-config';
+
+export function PrimeProviders({ children }) {
+  return <PrimeConfig>{children}</PrimeProviders>;
+}`;
+    fs.writeFileSync(primeProviderFile, primeProviderContent);
+    const layoutFile = path.join(projectPath, "src", "app", `layout${fileExt}`);
+    if (fs.existsSync(layoutFile)) {
+      console.log(`\u{1F504} Updating Next.js layout file to use PrimeProviders...`);
+      let layoutContent = fs.readFileSync(layoutFile, "utf-8");
+      const metadataRegex = /export\s+const\s+metadata\s*=\s*({[\s\S]*?});/;
+      const metadataMatch = metadataRegex.exec(layoutContent);
+      const metadata = metadataMatch ? metadataMatch[0] : `export const metadata = {
+  title: 'Create Next App',
+  description: 'Generated by create next app',
+};`;
+      const newLayoutContent = `import './globals.css';
+import { PrimeProviders } from './providers/prime-provider';
+
+${metadata}
+
+export default function RootLayout({
+  children,
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <PrimeProviders>
+          {children}
+        </PrimeProviders>
+      </body>
+    </html>
+  );
+}`;
+      fs.writeFileSync(layoutFile, newLayoutContent);
+      console.log(`\u2705 Next.js layout file updated to use PrimeProviders`);
+    }
+  }
   console.log("\u2705 PrimeReact configuration created");
 }
-function injectAntConfig(projectPath, language2) {
-  const indexCss = path.join(projectPath, "src", "index.css");
-  fs.writeFileSync(indexCss, `@import 'antd/dist/reset.css';
+function injectAntConfig(projectPath, language2, framework2) {
+  if (framework2 === "next") {
+    const globalCss = path.join(projectPath, "src", "app", "globals.css");
+    if (fs.existsSync(globalCss)) {
+      const cssContent = fs.readFileSync(globalCss, "utf-8");
+      if (!cssContent.includes("antd")) {
+        let newContent = cssContent;
+        if (cssContent.includes("@tailwind")) {
+          const tailwindEnd = cssContent.lastIndexOf("@tailwind") + cssContent.substring(cssContent.lastIndexOf("@tailwind")).indexOf(";") + 1;
+          newContent = cssContent.substring(0, tailwindEnd) + "\n/* Import Ant Design styles */\n" + cssContent.substring(tailwindEnd);
+        } else {
+          newContent = "/* Ant Design styles will be imported in the layout */\n\n" + cssContent;
+        }
+        fs.writeFileSync(globalCss, newContent);
+        console.log("\u2705 Added comment for Ant Design CSS in globals.css");
+      }
+    }
+    const providersDir = path.join(projectPath, "src", "app", "providers");
+    if (!fs.existsSync(providersDir)) {
+      fs.mkdirSync(providersDir, { recursive: true });
+    }
+    const fileExt2 = language2 === "typescript" ? ".tsx" : ".jsx";
+    const antProviderFile = path.join(providersDir, `ant-provider${fileExt2}`);
+    const antProviderContent = language2 === "typescript" ? `'use client';
+
+import React, { ReactNode } from 'react';
+import { ConfigProvider } from 'antd';
+import { theme } from '../../theme.config';
+
+// Import Ant Design styles
+import 'antd/dist/reset.css';
+
+interface AntProviderProps {
+  children: ReactNode;
+}
+
+export function AntProvider({ children }: AntProviderProps) {
+  return (
+    <ConfigProvider theme={theme}>
+      {children}
+    </ConfigProvider>
+  );
+}` : `'use client';
+
+import React from 'react';
+import { ConfigProvider } from 'antd';
+import { theme } from '../../theme.config';
+
+// Import Ant Design styles
+import 'antd/dist/reset.css';
+
+export function AntProvider({ children }) {
+  return (
+    <ConfigProvider theme={theme}>
+      {children}
+    </ConfigProvider>
+  );
+}`;
+    fs.writeFileSync(antProviderFile, antProviderContent);
+    const layoutFile = path.join(projectPath, "src", "app", `layout${fileExt2}`);
+    if (fs.existsSync(layoutFile)) {
+      console.log(`\u{1F504} Updating Next.js layout file to use AntProvider...`);
+      let layoutContent = fs.readFileSync(layoutFile, "utf-8");
+      const metadataRegex = /export\s+const\s+metadata\s*=\s*({[\s\S]*?});/;
+      const metadataMatch = metadataRegex.exec(layoutContent);
+      const metadata = metadataMatch ? metadataMatch[0] : `export const metadata = {
+  title: 'Create Next App',
+  description: 'Generated by create next app',
+};`;
+      const newLayoutContent = `import './globals.css';
+import { AntProvider } from './providers/ant-provider';
+
+${metadata}
+
+export default function RootLayout({
+  children,
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <AntProvider>
+          {children}
+        </AntProvider>
+      </body>
+    </html>
+  );
+}`;
+      fs.writeFileSync(layoutFile, newLayoutContent);
+      console.log(`\u2705 Next.js layout file updated to use AntProvider`);
+    }
+  } else {
+    const indexCss = path.join(projectPath, "src", "index.css");
+    fs.writeFileSync(indexCss, `/* Ant Design styles */
 `);
+    const fileExt2 = language2 === "typescript" ? ".tsx" : ".jsx";
+    const mainFile = path.join(projectPath, "src", `main${fileExt2}`);
+    if (fs.existsSync(mainFile)) {
+      let mainContent = fs.readFileSync(mainFile, "utf-8");
+      if (!mainContent.includes("antd/dist/reset.css")) {
+        const lastImportIndex = mainContent.lastIndexOf("import");
+        if (lastImportIndex !== -1) {
+          const endOfLastImport = mainContent.indexOf("\n", lastImportIndex) + 1;
+          mainContent = mainContent.substring(0, endOfLastImport) + "import 'antd/dist/reset.css';\n" + mainContent.substring(endOfLastImport);
+          fs.writeFileSync(mainFile, mainContent);
+        } else {
+          fs.writeFileSync(mainFile, "import 'antd/dist/reset.css';\n" + mainContent);
+        }
+      }
+    } else {
+      fs.writeFileSync(
+        mainFile,
+        language2 === "typescript" ? `import React from 'react';
+import ReactDOM from 'react-dom/client';
+import 'antd/dist/reset.css';
+import App from './App';
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);` : `import React from 'react';
+import ReactDOM from 'react-dom/client';
+import 'antd/dist/reset.css';
+import App from './App';
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);`
+      );
+    }
+  }
   const fileExt = language2 === "typescript" ? ".ts" : ".js";
   const themeConfig = path.join(projectPath, "src", `theme.config${fileExt}`);
   fs.writeFileSync(themeConfig, `export const theme = {
@@ -32845,30 +33474,237 @@ function injectAntConfig(projectPath, language2) {
 };`);
   console.log("\u2705 Ant Design configuration created");
 }
-function injectMUIConfig(projectPath, language2) {
-  const fileExt = language2 === "typescript" ? ".ts" : ".js";
-  const themeConfig = path.join(projectPath, "src", `theme${fileExt}`);
-  fs.writeFileSync(themeConfig, `import { createTheme } from '@mui/material/styles';
+function injectDaisyUIConfig(projectPath, language2, framework2) {
+  if (framework2 === "next") {
+    const tailwindConfig = path.join(projectPath, "tailwind.config.js");
+    console.log("\u{1F527} Creating DaisyUI configuration for Next.js");
+    fs.writeFileSync(tailwindConfig, `/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [require("daisyui")],
+  daisyui: {
+    themes: ["light", "dark", "cupcake", "corporate"],
+  }
+}`);
+    const postcssConfig = path.join(projectPath, "postcss.config.js");
+    if (!fs.existsSync(postcssConfig)) {
+      fs.writeFileSync(postcssConfig, `module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}`);
+    }
+    const globalCss = path.join(projectPath, "src", "app", "globals.css");
+    if (fs.existsSync(globalCss)) {
+      const cssContent = fs.readFileSync(globalCss, "utf-8");
+      if (!cssContent.includes("@tailwind base")) {
+        let cleanedContent = cssContent.replace(/@import\s+['"]tailwindcss.*?;/g, "");
+        const tailwindDirectives = `@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-export const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-  },
-  typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-  },
-});`);
-  console.log("\u2705 MUI configuration created");
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
 }
-function injectChakraConfig(projectPath, language2) {
-  const fileExt = language2 === "typescript" ? ".tsx" : ".jsx";
-  const mainFile = path.join(projectPath, "src", `main${fileExt}`);
-  fs.writeFileSync(mainFile, `import React from 'react'
+
+body {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
+}
+
+`;
+        fs.writeFileSync(globalCss, tailwindDirectives + cleanedContent);
+        console.log("\u2705 Tailwind directives added to globals.css");
+      }
+    } else {
+      console.log("\u26A0\uFE0F globals.css file not found");
+    }
+  } else {
+    const tailwindConfig = path.join(projectPath, "tailwind.config.cjs");
+    fs.writeFileSync(tailwindConfig, `/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [require("daisyui")],
+  daisyui: {
+    themes: ["light", "dark", "cupcake", "corporate"],
+  }
+}`);
+    const postcssConfig = path.join(projectPath, "postcss.config.cjs");
+    fs.writeFileSync(postcssConfig, `module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}`);
+    const fileExt = language2 === "typescript" ? ".ts" : ".js";
+    const viteConfig = path.join(projectPath, `vite.config${fileExt}`);
+    fs.writeFileSync(viteConfig, `import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react()],
+  css: {
+    postcss: './postcss.config.cjs',
+  },
+});
+`);
+    const indexCss = path.join(projectPath, "src", "index.css");
+    fs.writeFileSync(indexCss, `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+body {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
+}`);
+  }
+  const htmlPath = path.join(projectPath, "index.html");
+  if (fs.existsSync(htmlPath)) {
+    try {
+      const htmlContent = fs.readFileSync(htmlPath, "utf-8");
+      const updatedHtml = htmlContent.replace(/<title>.*?<\/title>/, "<title>DaisyUI App</title>").replace(/<meta name="viewport".*?>/, '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />');
+      fs.writeFileSync(htmlPath, updatedHtml);
+      console.log("\u2705 Updated index.html with proper viewport settings");
+    } catch (error) {
+      console.log("\u26A0\uFE0F Could not update index.html");
+    }
+  }
+  console.log("\u2705 DaisyUI and Tailwind CSS configuration files injected successfully");
+}
+function injectChakraConfig(projectPath, language2, framework2) {
+  if (framework2 === "next") {
+    const fileExt = language2 === "typescript" ? ".tsx" : ".jsx";
+    const themeFileExt2 = language2 === "typescript" ? ".ts" : ".js";
+    const themeFile2 = path.join(projectPath, "src", `theme${themeFileExt2}`);
+    fs.writeFileSync(themeFile2, `import { extendTheme } from '@chakra-ui/react'
+
+export const theme = extendTheme({
+  config: {
+    initialColorMode: 'light',
+    useSystemColorMode: false,
+  },
+  styles: {
+    global: {
+      body: {
+        margin: 0,
+        padding: 0,
+        boxSizing: 'border-box',
+      }
+    }
+  }
+})`);
+    const providersDir = path.join(projectPath, "src", "app", "providers");
+    if (!fs.existsSync(providersDir)) {
+      fs.mkdirSync(providersDir, { recursive: true });
+    }
+    const chakraProviderFile = path.join(providersDir, `chakra-provider${fileExt}`);
+    const chakraProviderContent = language2 === "typescript" ? `'use client';
+
+import { ChakraProvider, ColorModeScript } from '@chakra-ui/react';
+import { theme } from '../../theme';
+import { ReactNode } from 'react';
+
+interface ChakraProviderProps {
+  children: ReactNode;
+}
+
+export function ChakraProviders({ children }: ChakraProviderProps) {
+  return (
+    <>
+      <ColorModeScript initialColorMode={theme.config.initialColorMode} />
+      <ChakraProvider theme={theme}>
+        {children}
+      </ChakraProvider>
+    </>
+  );
+}` : `'use client';
+
+import { ChakraProvider, ColorModeScript } from '@chakra-ui/react';
+import { theme } from '../../theme';
+
+export function ChakraProviders({ children }) {
+  return (
+    <>
+      <ColorModeScript initialColorMode={theme.config.initialColorMode} />
+      <ChakraProvider theme={theme}>
+        {children}
+      </ChakraProvider>
+    </>
+  );
+}`;
+    fs.writeFileSync(chakraProviderFile, chakraProviderContent);
+    const layoutFile = path.join(projectPath, "src", "app", `layout${fileExt}`);
+    if (fs.existsSync(layoutFile)) {
+      console.log(`\u{1F504} Updating Next.js layout file to use ChakraProviders...`);
+      let layoutContent = fs.readFileSync(layoutFile, "utf-8");
+      const metadataRegex = /export\s+const\s+metadata\s*=\s*({[\s\S]*?});/;
+      const metadataMatch = metadataRegex.exec(layoutContent);
+      const metadata = metadataMatch ? metadataMatch[0] : `export const metadata = {
+  title: 'Create Next App',
+  description: 'Generated by create next app',
+};`;
+      const newLayoutContent = `import './globals.css';
+import { ChakraProviders } from './providers/chakra-provider';
+
+${metadata}
+
+export default function RootLayout({
+  children,
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <ChakraProviders>
+          {children}
+        </ChakraProviders>
+      </body>
+    </html>
+  );
+}`;
+      fs.writeFileSync(layoutFile, newLayoutContent);
+      console.log(`\u2705 Next.js layout file updated to use ChakraProviders`);
+    } else {
+      console.log(`\u26A0\uFE0F Could not find layout file at ${layoutFile}`);
+    }
+  } else {
+    const fileExt = language2 === "typescript" ? ".tsx" : ".jsx";
+    const mainFile = path.join(projectPath, "src", `main${fileExt}`);
+    fs.writeFileSync(mainFile, `import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { ChakraProvider, ColorModeScript } from '@chakra-ui/react'
 import { theme } from './theme'
@@ -32882,6 +33718,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </ChakraProvider>
   </React.StrictMode>,
 )`);
+  }
   const themeFileExt = language2 === "typescript" ? ".ts" : ".js";
   const themeFile = path.join(projectPath, "src", `theme${themeFileExt}`);
   fs.writeFileSync(themeFile, `import { extendTheme } from '@chakra-ui/react'
@@ -32901,8 +33738,10 @@ export const theme = extendTheme({
     }
   }
 })`);
-  const indexCss = path.join(projectPath, "src", "index.css");
-  fs.writeFileSync(indexCss, "");
+  if (framework2 !== "next") {
+    const indexCss = path.join(projectPath, "src", "index.css");
+    fs.writeFileSync(indexCss, "");
+  }
   console.log("\u2705 Chakra UI configuration created");
 }
 if (require.main === module) {

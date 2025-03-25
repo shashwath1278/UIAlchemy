@@ -4,9 +4,13 @@ A powerful CLI tool that generates React applications with pre-configured UI lib
 
 ## 🌟 Features
 
+- **Framework Options**
+  - React.js (with Vite)
+  - Next.js (App Router)
+
 - **Language Support**
-  - JavaScript (React)
-  - TypeScript (React + TypeScript)
+  - JavaScript
+  - TypeScript
   
 - **Six Popular UI Libraries**
   - Chakra UI (chakraflow)
@@ -20,7 +24,7 @@ A powerful CLI tool that generates React applications with pre-configured UI lib
   - Pre-configured themes
   - Ready-to-use templates
   - Automatic dependency installation
-  - Built with Vite for lightning-fast development
+  - Framework-specific optimizations
 
 ## 📦 Installation
 
@@ -31,8 +35,8 @@ npm install -g create-ui-app-cli
 # Create a new project (interactive mode)
 create-ui-app my-app
 
-# Or specify a preset (will prompt for language choice)
-create-ui-app my-app chakraflow
+# Or specify preset, language and framework
+create-ui-app my-app chakraflow typescript next
 ```
 
 ## 🚀 Quick Start
@@ -40,6 +44,10 @@ create-ui-app my-app chakraflow
 ```bash
 # Create a new project
 create-ui-app my-app
+
+# Select your preferred framework
+# - React (Vite)
+# - Next.js (App Router)
 
 # Select your preferred language
 # - JavaScript
