@@ -158,7 +158,7 @@ npm test
 
 ## 📄 License
 
-MIT © [Your Name]
+MIT © shashwath1278
 
 ## 🤝 Contributing
 
