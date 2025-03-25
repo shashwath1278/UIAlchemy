@@ -1,6 +1,6 @@
 {
   "name": "create-ui-app-cli",
-  "version": "1.0.4",
+  "version": "2.0.1",
   "description": "CLI tool to create React apps with popular UI libraries",
   "type": "commonjs",
   "bin": {

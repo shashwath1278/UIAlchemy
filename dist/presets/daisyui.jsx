@@ -1,11 +1,10 @@
 function App() {
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Navbar */}
       <div className="navbar bg-base-100 shadow-md">
         <div className="max-w-7xl mx-auto w-full px-4">
           <div className="flex-1">
-            <a className="btn btn-ghost text-xl">DaisyUI App</a>
+            <a className="btn btn-ghost text-xl">Daisyworld</a>
           </div>
           <div className="flex-none hidden md:block">
             <ul className="menu menu-horizontal px-1">
@@ -31,7 +30,6 @@ function App() {
         </div>
       </div>
 
-      {/* Hero Section */}
       <div className="hero min-h-[60vh] bg-gradient-to-r from-primary to-secondary text-primary-content">
         <div className="max-w-7xl mx-auto w-full px-4">
           <div className="hero-content text-center">
@@ -40,14 +38,15 @@ function App() {
               <p className="py-6">The most popular, free and open-source Tailwind CSS component library with fully customizable components.</p>
               <div className="flex flex-col sm:flex-row justify-center gap-4">
                 <button className="btn btn-primary">Get Started</button>
-                <button className="btn btn-outline btn-primary">Documentation</button>
+                <a href="https://daisyui.com/docs/install/" target="_blank" rel="noopener noreferrer" className="btn bg-white text-primary hover:bg-gray-100 border border-primary">
+                  Documentation
+                </a>
               </div>
             </div>
           </div>
         </div>
       </div>
       
-      {/* Features Section */}
       <div className="py-16 bg-base-200">
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12">Key Features</h2>
@@ -97,7 +96,6 @@ function App() {
         </div>
       </div>
       
-      {/* CTA Section */}
       <div className="py-16 bg-base-100">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center">
@@ -108,7 +106,6 @@ function App() {
         </div>
       </div>
       
-      {/* Footer */}
       <footer className="footer p-10 bg-neutral text-neutral-content mt-auto">
         <div className="max-w-7xl mx-auto w-full">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
@@ -135,7 +132,7 @@ function App() {
           </div>
           <div className="mt-8 border-t border-neutral-content pt-8 flex justify-between">
             <div>
-              <p>© 2023 DaisyUI App - All rights reserved</p>
+              <p>© 2023 Daisyworld App - All rights reserved</p>
             </div>
             <div className="flex gap-4">
               <a className="link link-hover">GitHub</a>

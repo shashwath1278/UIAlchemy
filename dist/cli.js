@@ -32647,11 +32647,13 @@ var require_helpers = __commonJS({
       const imports = [];
       let match;
       let cleanedTemplate = appTemplate;
+      cleanedTemplate = cleanedTemplate.replace(/<style[\s\S]*?<\/style>/g, "");
       while ((match = importRegex.exec(appTemplate)) !== null) {
         imports.push(match[0]);
         cleanedTemplate = cleanedTemplate.replace(match[0], "");
       }
       let additionalCode = "";
+      let additionalImports = [];
       if (presetType2 === "antverse") {
         const layoutDestructuringRegex = /const\s*{\s*([^}]+)\s*}\s*=\s*Layout;?/;
         const layoutMatch = layoutDestructuringRegex.exec(cleanedTemplate);
@@ -32672,7 +32674,6 @@ var require_helpers = __commonJS({
       }
       if (presetType2 === "muitopia") {
         cleanedTemplate = processMUITemplate(cleanedTemplate);
-        returnBody = processMUITemplate(returnBody);
         imports.push("import { ThemeProvider } from '@mui/material/styles';\n");
         imports.push("import CssBaseline from '@mui/material/CssBaseline';\n");
         imports.push("import { theme } from '../../theme';\n");
@@ -32680,6 +32681,21 @@ var require_helpers = __commonJS({
       <CssBaseline />
       ${returnBody}
     </ThemeProvider>`;
+      }
+      if (presetType2 === "chakraflow") {
+        const hasColorModeImport = imports.some(
+          (imp) => imp.includes("@chakra-ui/react") && imp.includes("useColorMode")
+        );
+        const hasColorModeValueImport = imports.some(
+          (imp) => imp.includes("@chakra-ui/react") && imp.includes("useColorModeValue")
+        );
+        if (!hasColorModeImport && !hasColorModeValueImport) {
+          additionalImports.push("import { useColorMode, useColorModeValue } from '@chakra-ui/react';\n");
+        } else if (!hasColorModeImport) {
+          additionalImports.push("import { useColorMode } from '@chakra-ui/react';\n");
+        } else if (!hasColorModeValueImport) {
+          additionalImports.push("import { useColorModeValue } from '@chakra-ui/react';\n");
+        }
       }
       const appBodyRegex = /function\s+App\s*\(\s*\)\s*\{([\s\S]*?)return\s*\(([\s\S]*?)\);\s*\}/;
       const appBodyMatch = appBodyRegex.exec(cleanedTemplate);
@@ -32697,11 +32713,30 @@ var require_helpers = __commonJS({
           returnBody = "/* Template conversion failed - please check the template */";
         }
       }
+      if (presetType2 === "primeland") {
+        componentBody = `${componentBody}
+  // CSS for PrimeReact components
+  const gradientBgStyle = {
+    background: 'linear-gradient(135deg, var(--primary-color) 0%, #8b5cf6 100%)'
+  };
+  
+  const featureIconStyle = {
+    width: '4rem',
+    height: '4rem',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  };
+  
+  const previewCardStyle = {
+    maxWidth: '400px',
+    width: '100%'
+  };`;
+        returnBody = returnBody.replace(/className="gradient-bg/g, 'style={gradientBgStyle} className="').replace(/className="feature-icon/g, 'style={featureIconStyle} className="').replace(/className="preview-card/g, 'style={previewCardStyle} className="');
+      }
       return `'use client';
 
-` + // Include all the imports
-      imports.join("") + "\n\n" + // Add any additional code needed
-      additionalCode + "export default function Home() {\n" + (componentBody ? `  ${componentBody}
+` + imports.join("") + additionalImports.join("") + "\n\n" + additionalCode + "export default function Home() {\n" + (componentBody ? `  ${componentBody}
 ` : "") + "  return (\n    " + returnBody + "\n  );\n}";
     }
     module2.exports = {
@@ -32726,7 +32761,7 @@ var dependencies = {
     "framer-motion@10.18.0"
   ],
   shadeflow: ["tailwindcss@3.4.1", "postcss@8.4.35", "autoprefixer@10.4.17"],
-  daisyui: ["tailwindcss@3.4.1", "postcss@8.4.35", "autoprefixer@10.4.17", "daisyui@4.4.19"],
+  daisyworld: ["tailwindcss@3.4.1", "postcss@8.4.35", "autoprefixer@10.4.17", "daisyui@4.4.19"],
   antverse: ["antd", "@ant-design/icons"],
   bootflow: ["react-bootstrap", "bootstrap"],
   primeland: ["primereact", "primeicons"]
@@ -32813,14 +32848,25 @@ async function run() {
     let targetAppFile;
     if (framework === "next") {
       const fileExt = language === "typescript" ? ".tsx" : ".jsx";
+      const jsExt = language === "typescript" ? ".ts" : ".js";
       const appDir = path.join(projectPath, "src", "app");
+      const possiblePageFiles = [
+        path.join(appDir, `page${fileExt}`),
+        path.join(appDir, `page${jsExt}`)
+      ];
+      possiblePageFiles.forEach((file) => {
+        if (fs.existsSync(file)) {
+          console.log(`\u{1F5D1}\uFE0F Removing existing page file: ${file}`);
+          fs.unlinkSync(file);
+        }
+      });
       targetAppFile = path.join(appDir, `page${fileExt}`);
       let nextTemplate;
       try {
         const helpers = require_helpers();
         nextTemplate = helpers.processTemplateForNextJs(appTemplate, presetType);
       } catch (error) {
-        console.log("\u26A0\uFE0F Helper module not found, using inline conversion");
+        console.log("\u26A0\uFE0F Helper module not found or error processing template:", error.message);
         const importRegex = /import\s+.*?['"];?(\r?\n|\r)/g;
         const imports = [];
         let match;
@@ -32866,13 +32912,44 @@ async function run() {
         }
         nextTemplate = `'use client';
 
-` + // Include all the imports
-        imports.join("") + "\n\n" + // Add special code like Layout destructuring if needed
-        (specialCode ? specialCode : "") + "export default function Home() {\n" + (componentBody ? `  ${componentBody}
+` + imports.join("") + "\n\n" + (specialCode ? specialCode : "") + "export default function Home() {\n" + (componentBody ? `  ${componentBody}
 ` : "") + "  return (\n    " + returnBody + "\n  );\n}";
       }
       fs.writeFileSync(targetAppFile, nextTemplate);
       console.log(`\u2705 Injected ${presetType} template into Next.js page${fileExt}`);
+      if (presetType === "primeland") {
+        const stylesDir = path.join(projectPath, "src", "styles");
+        if (!fs.existsSync(stylesDir)) {
+          fs.mkdirSync(stylesDir, { recursive: true });
+        }
+        const primeCssFile = path.join(stylesDir, "primeland.css");
+        fs.writeFileSync(primeCssFile, `.gradient-bg {
+  background: linear-gradient(135deg, var(--primary-color) 0%, #8b5cf6 100%);
+}
+
+.feature-icon {
+  width: 4rem;
+  height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-card {
+  max-width: 400px;
+  width: 100%;
+}
+`);
+        const globalCssPath = path.join(projectPath, "src", "app", "globals.css");
+        if (fs.existsSync(globalCssPath)) {
+          let cssContent = fs.readFileSync(globalCssPath, "utf-8");
+          if (!cssContent.includes('@import "../../styles/primeland.css"')) {
+            cssContent = `@import "../../styles/primeland.css";
+` + cssContent;
+            fs.writeFileSync(globalCssPath, cssContent);
+          }
+        }
+      }
     } else {
       const fileExt = language === "typescript" ? ".tsx" : ".jsx";
       targetAppFile = path.join(projectPath, "src", `App${fileExt}`);
@@ -32895,7 +32972,7 @@ async function run() {
       case "antverse":
         injectAntConfig(projectPath, language, framework);
         break;
-      case "daisyui":
+      case "daisyworld":
         injectDaisyUIConfig(projectPath, language, framework);
         break;
       case "chakraflow":
@@ -32977,7 +33054,6 @@ module.exports = {
     fs.writeFileSync(viteConfig, `import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   css: {
@@ -33014,8 +33090,7 @@ function injectBootstrapConfig(projectPath, language2, framework2) {
     fs.writeFileSync(indexCss, "@import 'bootstrap/dist/css/bootstrap.min.css';\n");
   }
   const bootstrapConfig = path.join(projectPath, "src", "custom.scss");
-  fs.writeFileSync(bootstrapConfig, `// Override Bootstrap variables here
-$primary: #007bff;
+  fs.writeFileSync(bootstrapConfig, `$primary: #007bff;
 $secondary: #6c757d;
 
 @import '~bootstrap/scss/bootstrap.scss';`);
@@ -33053,23 +33128,82 @@ body {
   background-color: var(--surface-ground);
   color: var(--text-color);
   font-family: var(--font-family);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+.layout-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Utility Classes */
-.flex { display: flex !important; }
-.flex-column { flex-direction: column !important; }
-.justify-content-start { justify-content: flex-start !important; }
-.justify-content-between { justify-content: space-between !important; }
-.align-items-center { align-items: center !important; }
-.m-0 { margin: 0 !important; }
-.mb-2 { margin-bottom: 0.5rem !important; }
-.mb-4 { margin-bottom: 1rem !important; }
-.mr-2 { margin-right: 0.5rem !important; }
-.mt-3 { margin-top: 0.75rem !important; }
-.mt-4 { margin-top: 1rem !important; }
-.w-full { width: 100% !important; }
-.border-none { border: none !important; }
-.h-full { height: 100% !important; }
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.mx-auto { margin-left: auto; margin-right: auto; }
+.px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+.py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+.py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-5 { margin-bottom: 1.25rem; }
+.mb-3 { margin-bottom: 0.75rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mr-2 { margin-right: 0.5rem; }
+.mt-5 { margin-top: 1.25rem; }
+.mt-6 { margin-top: 1.5rem; }
+.pt-6 { padding-top: 1.5rem; }
+.m-0 { margin: 0; }
+.p-3 { padding: 0.75rem; }
+.p-4 { padding: 1rem; }
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 0.75rem; }
+.text-center { text-align: center; }
+.text-white { color: white; }
+.text-xl { font-size: 1.25rem; }
+.text-2xl { font-size: 1.5rem; }
+.text-3xl { font-size: 1.875rem; }
+.text-5xl { font-size: 3rem; }
+.text-sm { font-size: 0.875rem; }
+.font-bold { font-weight: 700; }
+.font-medium { font-weight: 500; }
+.cursor-pointer { cursor: pointer; }
+.uppercase { text-transform: uppercase; }
+.list-none { list-style-type: none; }
+.h-full { height: 100%; }
+.w-full { width: 100%; }
+.flex { display: flex; }
+.flex-column { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.justify-content-center { justify-content: center; }
+.justify-content-between { justify-content: space-between; }
+.align-items-center { align-items: center; }
+.border-circle { border-radius: 50%; }
+.border-round { border-radius: 6px; }
+.border-round-xl { border-radius: 12px; }
+.border-top-1 { border-top-width: 1px; border-top-style: solid; }
+.border-gray-800 { border-color: #1F2937; }
+.text-900 { color: #0F172A; }
+.text-800 { color: #1E293B; }
+.text-700 { color: #334155; }
+.text-600 { color: #475569; }
+.text-gray-400 { color: #94A3B8; }
+.text-gray-300 { color: #CBD5E1; }
+.bg-gray-900 { background-color: #111827; }
+.bg-primary-100 { background-color: #EEF2FF; }
+.bg-orange-100 { background-color: #FFEDD5; }
+.bg-purple-100 { background-color: #F3E8FF; }
+.text-primary { color: var(--primary-color); }
+.text-orange-500 { color: #F97316; }
+.text-purple-500 { color: #A855F7; }
+.shadow-2 { box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); }
+.shadow-4 { box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15); }
+.line-height-3 { line-height: 1.5; }
 
 /* Grid System */
 .grid {
@@ -33077,7 +33211,6 @@ body {
   flex-wrap: wrap;
   margin-right: -0.5rem;
   margin-left: -0.5rem;
-  margin-top: -0.5rem;
 }
 
 .col-12 { 
@@ -33086,30 +33219,87 @@ body {
   box-sizing: border-box; 
 }
 
+.col-6 { 
+  flex: 0 0 50%; 
+  padding: 0.5rem; 
+  box-sizing: border-box; 
+}
+
 @media screen and (min-width: 768px) {
+  .md\\:col-3 { 
+    flex: 0 0 25%; 
+    padding: 0.5rem; 
+    box-sizing: border-box; 
+  }
+  
   .md\\:col-4 { 
     flex: 0 0 33.3333%; 
     padding: 0.5rem; 
     box-sizing: border-box; 
   }
+  
+  .md\\:col-6 { 
+    flex: 0 0 50%; 
+    padding: 0.5rem; 
+    box-sizing: border-box; 
+  }
+  
+  .md\\:col-8 { 
+    flex: 0 0 66.6667%; 
+    padding: 0.5rem; 
+    box-sizing: border-box; 
+  }
+  
+  .md\\:mb-0 { margin-bottom: 0 !important; }
+  .md\\:mt-0 { margin-top: 0 !important; }
+  .md\\:flex-row { flex-direction: row !important; }
+  .md\\:hidden { display: none !important; }
 }
 
-/* Layout styles */
-.layout-wrapper {
-  min-height: 100vh;
-  background: linear-gradient(to right bottom, #f8fafc, #eff6ff);
+@media screen and (max-width: 767px) {
+  .md\\:hidden { display: block !important; }
+  .hidden { display: none !important; }
 }
 
-.layout-main {
-  padding: 2rem;
+/* Custom styles for PrimeReact */
+.gradient-bg {
+  background: linear-gradient(135deg, var(--primary-color) 0%, #8b5cf6 100%);
+}
+
+.feature-icon {
+  width: 4rem;
+  height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-card {
+  max-width: 400px;
   width: 100%;
 }
 
-.layout-content {
-  border-radius: 12px;
+.p-menubar {
+  background: var(--surface-card);
+  border: none;
+  border-radius: 0;
+  padding: 1rem;
+}
+
+.p-card .p-card-content {
+  padding-top: 0.5rem;
+}
+
+.surface-card {
   background-color: var(--surface-card);
-  padding: 2rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.surface-section {
+  background-color: var(--surface-section, #ffffff);
+}
+
+.surface-ground {
+  background-color: var(--surface-ground);
 }`;
       fs.writeFileSync(globalCss, newCssContent);
       console.log("\u2705 Created new globals.css file with PrimeReact styling");
@@ -33226,8 +33416,269 @@ body {
   font-family: var(--font-family);
   margin: 0;
   padding: 0;
-}`
+  min-height: 100vh;
+}
+
+.layout-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Utility Classes */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.mx-auto { margin-left: auto; margin-right: auto; }
+.px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+.py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+.py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-5 { margin-bottom: 1.25rem; }
+.mb-3 { margin-bottom: 0.75rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mr-2 { margin-right: 0.5rem; }
+.mt-5 { margin-top: 1.25rem; }
+.mt-6 { margin-top: 1.5rem; }
+.pt-6 { padding-top: 1.5rem; }
+.m-0 { margin: 0; }
+.p-3 { padding: 0.75rem; }
+.p-4 { padding: 1rem; }
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 0.75rem; }
+.text-center { text-align: center; }
+.text-white { color: white; }
+.text-xl { font-size: 1.25rem; }
+.text-2xl { font-size: 1.5rem; }
+.text-3xl { font-size: 1.875rem; }
+.text-5xl { font-size: 3rem; }
+.text-sm { font-size: 0.875rem; }
+.font-bold { font-weight: 700; }
+.font-medium { font-weight: 500; }
+.cursor-pointer { cursor: pointer; }
+.uppercase { text-transform: uppercase; }
+.list-none { list-style-type: none; }
+.h-full { height: 100%; }
+.w-full { width: 100%; }
+.flex { display: flex; }
+.flex-column { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.justify-content-center { justify-content: center; }
+.justify-content-between { justify-content: space-between; }
+.align-items-center { align-items: center; }
+.border-circle { border-radius: 50%; }
+.border-round { border-radius: 6px; }
+.border-round-xl { border-radius: 12px; }
+.border-top-1 { border-top-width: 1px; border-top-style: solid; }
+.border-gray-800 { border-color: #1F2937; }
+.text-900 { color: #0F172A; }
+.text-800 { color: #1E293B; }
+.text-700 { color: #334155; }
+.text-600 { color: #475569; }
+.text-gray-400 { color: #94A3B8; }
+.text-gray-300 { color: #CBD5E1; }
+.bg-gray-900 { background-color: #111827; }
+.bg-primary-100 { background-color: #EEF2FF; }
+.bg-orange-100 { background-color: #FFEDD5; }
+.bg-purple-100 { background-color: #F3E8FF; }
+.text-primary { color: var(--primary-color); }
+.text-orange-500 { color: #F97316; }
+.text-purple-500 { color: #A855F7; }
+.shadow-2 { box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); }
+.shadow-4 { box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15); }
+.line-height-3 { line-height: 1.5; }
+
+/* Grid System */
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: -0.5rem;
+  margin-left: -0.5rem;
+}
+
+.col-12 { 
+  flex: 0 0 100%; 
+  padding: 0.5rem; 
+  box-sizing: border-box; 
+}
+
+.col-6 { 
+  flex: 0 0 50%; 
+  padding: 0.5rem; 
+  box-sizing: border-box; 
+}
+
+@media screen and (min-width: 768px) {
+  .md\\:col-3 { 
+    flex: 0 0 25%; 
+    padding: 0.5rem; 
+    box-sizing: border-box; 
+  }
+  
+  .md\\:col-4 { 
+    flex: 0 0 33.3333%; 
+    padding: 0.5rem; 
+    box-sizing: border-box; 
+  }
+  
+  .md\\:col-6 { 
+    flex: 0 0 50%; 
+    padding: 0.5rem; 
+    box-sizing: border-box; 
+  }
+  
+  .md\\:col-8 { 
+    flex: 0 0 66.6667%; 
+    padding: 0.5rem; 
+    box-sizing: border-box; 
+  }
+  
+  .md\\:mb-0 { margin-bottom: 0 !important; }
+  .md\\:mt-0 { margin-top: 0 !important; }
+  .md\\:flex-row { flex-direction: row !important; }
+  .md\\:hidden { display: none !important; }
+}
+
+@media screen and (max-width: 767px) {
+  .md\\:hidden { display: block !important; }
+  .hidden { display: none !important; }
+}
+
+/* Custom styles for PrimeReact */
+.gradient-bg {
+  background: linear-gradient(135deg, var(--primary-color) 0%, #8b5cf6 100%);
+}
+
+.feature-icon {
+  width: 4rem;
+  height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-card {
+  max-width: 400px;
+  width: 100%;
+}
+
+.p-menubar {
+  background: var(--surface-card);
+  border: none;
+  border-radius: 0;
+  padding: 1rem;
+}
+
+.p-card .p-card-content {
+  padding-top: 0.5rem;
+}
+
+.surface-card {
+  background-color: var(--surface-card);
+}
+
+.surface-section {
+  background-color: var(--surface-section, #ffffff);
+}
+
+.surface-ground {
+  background-color: var(--surface-ground);
+}
+
+/* Fix to ensure PrimeReact themes apply correctly */
+.p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link) {
+  color: #ffffff;
+}
+
+.p-button.p-button-info {
+  background: var(--blue-500);
+  border: 1px solid var(--blue-500);
+}
+
+.p-button.p-button-info:enabled:hover {
+  background: var(--blue-600);
+  border-color: var(--blue-600);
+}
+
+/* Add PrimeReact specific hover effects */
+.p-button.p-button-text:enabled:hover {
+  background: rgba(99, 102, 241, 0.04);
+  color: var(--primary-color);
+  border-color: transparent;
+}
+`
     );
+    try {
+      console.log("\u{1F4E6} Installing PrimeFlex for better layout support...");
+      execSync("npm install primeflex", {
+        cwd: projectPath,
+        stdio: "inherit"
+      });
+    } catch (error) {
+      console.log("\u26A0\uFE0F Could not install PrimeFlex, using custom styles instead");
+    }
+    const styleDir = path.join(projectPath, "src", "styles");
+    if (!fs.existsSync(styleDir)) {
+      fs.mkdirSync(styleDir, { recursive: true });
+    }
+    const primeThemeFile = path.join(styleDir, "prime-theme.css");
+    fs.writeFileSync(primeThemeFile, `/* PrimeReact Custom Theme Overrides */
+
+/* Menu bar styling */
+.p-menubar {
+  background-color: var(--surface-card);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Button improvements */
+.p-button {
+  border-radius: 6px;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.p-button.p-button-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.p-button.p-button-primary:hover {
+  background-color: var(--primary-color-hover);
+  border-color: var(--primary-color-hover);
+}
+
+/* Card improvements */
+.p-card {
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  margin-bottom: 1rem;
+}
+
+.p-card .p-card-title {
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+.p-card .p-card-subtitle {
+  color: var(--text-color-secondary);
+  font-weight: 400;
+}
+`);
+    const fileExt2 = language2 === "typescript" ? ".tsx" : ".jsx";
+    const mainFile = path.join(projectPath, "src", `main${fileExt2}`);
+    if (fs.existsSync(mainFile)) {
+      let mainContent = fs.readFileSync(mainFile, "utf-8");
+      if (!mainContent.includes('import "./styles/prime-theme.css"')) {
+        const lastImportIndex = mainContent.lastIndexOf("import");
+        if (lastImportIndex !== -1) {
+          const endOfLastImport = mainContent.indexOf("\n", lastImportIndex) + 1;
+          mainContent = mainContent.substring(0, endOfLastImport) + "import './styles/prime-theme.css';\n" + mainContent.substring(endOfLastImport);
+          fs.writeFileSync(mainFile, mainContent);
+        }
+      }
+    }
   }
   const fileExt = language2 === "typescript" ? ".tsx" : ".jsx";
   const primeConfigPath = framework2 === "next" ? path.join(projectPath, "src", "components") : path.join(projectPath, "src");
@@ -33263,7 +33714,7 @@ export const PrimeConfig = ({ children }) => {
     locale: 'en'
   };
   
-  return <PrimeReactProvider value={value}>{children}</PrimeReactProvider>;
+  return <PrimeReactProvider value={value}>{children}</PrimeConfig>;
 };`;
   fs.writeFileSync(primeConfig, configContent);
   if (framework2 === "next") {
@@ -33354,7 +33805,6 @@ import React, { ReactNode } from 'react';
 import { ConfigProvider } from 'antd';
 import { theme } from '../../theme.config';
 
-// Import Ant Design styles
 import 'antd/dist/reset.css';
 
 interface AntProviderProps {
@@ -33373,7 +33823,6 @@ import React from 'react';
 import { ConfigProvider } from 'antd';
 import { theme } from '../../theme.config';
 
-// Import Ant Design styles
 import 'antd/dist/reset.css';
 
 export function AntProvider({ children }) {
@@ -33454,7 +33903,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />
   </React.StrictMode>,
-);`
+)`
       );
     }
   }
@@ -33477,7 +33926,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 function injectDaisyUIConfig(projectPath, language2, framework2) {
   if (framework2 === "next") {
     const tailwindConfig = path.join(projectPath, "tailwind.config.js");
-    console.log("\u{1F527} Creating DaisyUI configuration for Next.js");
+    console.log("\u{1F527} Creating Daisyworld configuration for Next.js");
     fs.writeFileSync(tailwindConfig, `/** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -33563,7 +34012,6 @@ module.exports = {
     fs.writeFileSync(viteConfig, `import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   css: {
@@ -33597,14 +34045,14 @@ body {
   if (fs.existsSync(htmlPath)) {
     try {
       const htmlContent = fs.readFileSync(htmlPath, "utf-8");
-      const updatedHtml = htmlContent.replace(/<title>.*?<\/title>/, "<title>DaisyUI App</title>").replace(/<meta name="viewport".*?>/, '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />');
+      const updatedHtml = htmlContent.replace(/<title>.*?<\/title>/, "<title>Daisyworld App</title>").replace(/<meta name="viewport".*?>/, '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />');
       fs.writeFileSync(htmlPath, updatedHtml);
       console.log("\u2705 Updated index.html with proper viewport settings");
     } catch (error) {
       console.log("\u26A0\uFE0F Could not update index.html");
     }
   }
-  console.log("\u2705 DaisyUI and Tailwind CSS configuration files injected successfully");
+  console.log("\u2705 Daisyworld and Tailwind CSS configuration files injected successfully");
 }
 function injectChakraConfig(projectPath, language2, framework2) {
   if (framework2 === "next") {
@@ -33617,6 +34065,44 @@ export const theme = extendTheme({
   config: {
     initialColorMode: 'light',
     useSystemColorMode: false,
+  },
+  colors: {
+    blue: {
+      50: '#EBF8FF',
+      100: '#BEE3F8',
+      200: '#90CDF4',
+      300: '#63B3ED',
+      400: '#4299E1',
+      500: '#3182CE',
+      600: '#2B6CB0',
+      700: '#2C5282',
+      800: '#2A4365',
+      900: '#1A365D',
+    },
+    purple: {
+      50: '#FAF5FF',
+      100: '#E9D8FD',
+      200: '#D6BCFA',
+      300: '#B794F4',
+      400: '#9F7AEA',
+      500: '#805AD5',
+      600: '#6B46C1',
+      700: '#553C9A',
+      800: '#44337A',
+      900: '#322659',
+    },
+    gray: {
+      50: '#F7FAFC',
+      100: '#EDF2F7',
+      200: '#E2E8F0',
+      300: '#CBD5E0',
+      400: '#A0AEC0',
+      500: '#718096',
+      600: '#4A5568',
+      700: '#2D3748',
+      800: '#1A202C',
+      900: '#171923',
+    }
   },
   styles: {
     global: {
@@ -33634,6 +34120,51 @@ export const theme = extendTheme({
     }
     const chakraProviderFile = path.join(providersDir, `chakra-provider${fileExt}`);
     const chakraProviderContent = language2 === "typescript" ? `'use client';
+
+import { ChakraProvider, ColorModeScript } from '@chakra-ui/react';
+import { theme } from '../../theme';
+import { ReactNode } from 'react';
+import { CacheProvider } from '@chakra-ui/next-js';
+
+interface ChakraProviderProps {
+  children: ReactNode;
+}
+
+export function ChakraProviders({ children }: ChakraProviderProps) {
+  return (
+    <CacheProvider>
+      <ColorModeScript initialColorMode={theme.config.initialColorMode} />
+      <ChakraProvider theme={theme}>
+        {children}
+      </ChakraProvider>
+    </CacheProvider>
+  );
+}` : `'use client';
+
+import { ChakraProvider, ColorModeScript } from '@chakra-ui/react';
+import { theme } from '../../theme';
+import { CacheProvider } from '@chakra-ui/next-js';
+
+export function ChakraProviders({ children }) {
+  return (
+    <CacheProvider>
+      <ColorModeScript initialColorMode={theme.config.initialColorMode} />
+      <ChakraProvider theme={theme}>
+        {children}
+      </ChakraProvider>
+    </CacheProvider>
+  );
+}`;
+    fs.writeFileSync(chakraProviderFile, chakraProviderContent);
+    console.log("\u{1F4E6} Installing @chakra-ui/next-js for better Next.js integration...");
+    try {
+      execSync("npm install @chakra-ui/next-js --legacy-peer-deps", {
+        cwd: projectPath,
+        stdio: "inherit"
+      });
+    } catch (error) {
+      console.log("\u26A0\uFE0F Could not install @chakra-ui/next-js, modifying provider to work without it");
+      const chakraProviderContent2 = language2 === "typescript" ? `'use client';
 
 import { ChakraProvider, ColorModeScript } from '@chakra-ui/react';
 import { theme } from '../../theme';
@@ -33667,21 +34198,20 @@ export function ChakraProviders({ children }) {
     </>
   );
 }`;
-    fs.writeFileSync(chakraProviderFile, chakraProviderContent);
+      const providersDir2 = path.join(projectPath, "src", "app", "providers");
+      const chakraProviderFile2 = path.join(providersDir2, `chakra-provider${language2 === "typescript" ? ".tsx" : ".jsx"}`);
+      fs.writeFileSync(chakraProviderFile2, chakraProviderContent2);
+    }
     const layoutFile = path.join(projectPath, "src", "app", `layout${fileExt}`);
-    if (fs.existsSync(layoutFile)) {
-      console.log(`\u{1F504} Updating Next.js layout file to use ChakraProviders...`);
-      let layoutContent = fs.readFileSync(layoutFile, "utf-8");
-      const metadataRegex = /export\s+const\s+metadata\s*=\s*({[\s\S]*?});/;
-      const metadataMatch = metadataRegex.exec(layoutContent);
-      const metadata = metadataMatch ? metadataMatch[0] : `export const metadata = {
-  title: 'Create Next App',
-  description: 'Generated by create next app',
+    console.log(`\u{1F504} Creating Next.js layout file for ChakraProviders...`);
+    const metadataContent = `export const metadata = {
+  title: 'ChakraFlow App',
+  description: 'Next.js app with Chakra UI',
 };`;
-      const newLayoutContent = `import './globals.css';
+    const newLayoutContent = `import './globals.css';
 import { ChakraProviders } from './providers/chakra-provider';
 
-${metadata}
+${metadataContent}
 
 export default function RootLayout({
   children,
@@ -33696,15 +34226,12 @@ export default function RootLayout({
     </html>
   );
 }`;
-      fs.writeFileSync(layoutFile, newLayoutContent);
-      console.log(`\u2705 Next.js layout file updated to use ChakraProviders`);
-    } else {
-      console.log(`\u26A0\uFE0F Could not find layout file at ${layoutFile}`);
-    }
+    fs.writeFileSync(layoutFile, newLayoutContent);
+    console.log(`\u2705 Next.js layout file created with ChakraProviders`);
   } else {
     const fileExt = language2 === "typescript" ? ".tsx" : ".jsx";
     const mainFile = path.join(projectPath, "src", `main${fileExt}`);
-    fs.writeFileSync(mainFile, `import React from 'react'
+    const mainContent = language2 === "typescript" ? `import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { ChakraProvider, ColorModeScript } from '@chakra-ui/react'
 import { theme } from './theme'
@@ -33717,7 +34244,21 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <App />
     </ChakraProvider>
   </React.StrictMode>,
-)`);
+)` : `import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { ChakraProvider, ColorModeScript } from '@chakra-ui/react'
+import { theme } from './theme'
+import App from './App'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <ColorModeScript />
+    <ChakraProvider theme={theme}>
+      <App />
+    </ChakraProvider>
+  </React.StrictMode>,
+)`;
+    fs.writeFileSync(mainFile, mainContent);
   }
   const themeFileExt = language2 === "typescript" ? ".ts" : ".js";
   const themeFile = path.join(projectPath, "src", `theme${themeFileExt}`);
@@ -33727,6 +34268,44 @@ export const theme = extendTheme({
   config: {
     initialColorMode: 'light',
     useSystemColorMode: false,
+  },
+  colors: {
+    blue: {
+      50: '#EBF8FF',
+      100: '#BEE3F8',
+      200: '#90CDF4',
+      300: '#63B3ED',
+      400: '#4299E1',
+      500: '#3182CE',
+      600: '#2B6CB0',
+      700: '#2C5282',
+      800: '#2A4365',
+      900: '#1A365D',
+    },
+    purple: {
+      50: '#FAF5FF',
+      100: '#E9D8FD',
+      200: '#D6BCFA',
+      300: '#B794F4',
+      400: '#9F7AEA',
+      500: '#805AD5',
+      600: '#6B46C1',
+      700: '#553C9A',
+      800: '#44337A',
+      900: '#322659',
+    },
+    gray: {
+      50: '#F7FAFC',
+      100: '#EDF2F7',
+      200: '#E2E8F0',
+      300: '#CBD5E0',
+      400: '#A0AEC0',
+      500: '#718096',
+      600: '#4A5568',
+      700: '#2D3748',
+      800: '#1A202C',
+      900: '#171923',
+    }
   },
   styles: {
     global: {
