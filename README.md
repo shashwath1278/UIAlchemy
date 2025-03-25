@@ -23,6 +23,13 @@ It is published on NPM and can be installed globally on any machine terminal.
   - Automatic dependency installation
   - Built with Vite or Next.js for lightning-fast development
 
+## 📦 NPM Package
+
+[![NPM Version](https://img.shields.io/npm/v/create-ui-app-cli.svg?style=flat)](https://www.npmjs.com/package/create-ui-app-cli)
+[![NPM Downloads](https://img.shields.io/npm/dm/create-ui-app-cli.svg?style=flat)](https://www.npmjs.com/package/create-ui-app-cli)
+
+**[View on NPM](https://www.npmjs.com/package/create-ui-app-cli)**
+
 ## ⚡ Quick Use (No git cloning required)
 
 Just go to your editor(vs code) terminal and use these commands
