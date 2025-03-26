@@ -137,6 +137,69 @@ my-app/
 - Theme customization
 - Built-in icons
 
+## Using ShadCN UI in your project
+
+When you create a project with the `shadeflow` preset, the CLI automatically sets up the infrastructure needed for ShadCN UI:
+
+### 1. Use the pre-installed Button component
+
+A Button component is automatically created in your project at `src/components/ui/button.tsx`. You can import and use it like this:
+
+```tsx
+import { Button } from "./components/ui/button";
+
+function MyComponent() {
+  return (
+    <div>
+      <Button>Default Button</Button>
+      <Button variant="destructive">Destructive Button</Button>
+      <Button variant="outline">Outline Button</Button>
+      <Button variant="secondary">Secondary Button</Button>
+      <Button variant="ghost">Ghost Button</Button>
+      <Button variant="link">Link Button</Button>
+    </div>
+  );
+}
+```
+
+### 2. Add more ShadCN components
+
+The project has been set up with a convenience script to add more ShadCN components:
+
+```bash
+# Add a single component
+npm run shadcn@latest card
+
+# Add multiple components
+npm run shadcn@latest dialog dropdown-menu toast
+
+# Add a component with its dependencies automatically
+npm run shadcn@latest calendar
+```
+
+This will add the components to your `src/components/ui` directory, ready to use.
+
+### 3. Customize components
+
+One of the advantages of ShadCN UI is that all component source code is in your project. To customize a component:
+
+1. Navigate to the component file (e.g., `src/components/ui/button.tsx`)
+2. Modify the component code to suit your needs
+3. The changes will apply everywhere the component is used
+
+### 4. Theme customization
+
+ShadCN UI uses CSS variables for theming. You can customize the theme by modifying:
+
+- For React: `src/index.css`
+- For Next.js: `src/app/globals.css`
+
+Look for the `:root` and `.dark` selectors to modify colors, border radius, etc.
+
+### 5. Learn more about ShadCN UI
+
+For more information, visit [ui.shadcn.com](https://ui.shadcn.com/)
+
 ## 🔧 Development
 
 ```bash

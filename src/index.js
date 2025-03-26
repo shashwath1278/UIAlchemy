@@ -378,6 +378,362 @@ export default defineConfig({
   }
 
   console.log("✅ Tailwind CSS and Shadeflow configuration files injected successfully");
+
+  // Add configuration for ShadCN UI
+  console.log("🔧 Setting up ShadCN UI components...");
+  
+  // Install all required ShadCN UI dependencies
+  console.log("📦 Installing ShadCN UI dependencies...");
+  try {
+    execSync(`npm install class-variance-authority clsx tailwind-merge tailwindcss-animate lucide-react`, {
+      cwd: projectPath,
+      stdio: "inherit",
+    });
+
+    // Also install Radix UI primitives which ShadCN is built on
+    execSync(`npm install @radix-ui/react-slot @radix-ui/react-dialog @radix-ui/react-dropdown-menu @radix-ui/react-toast`, {
+      cwd: projectPath,
+      stdio: "inherit",
+    });
+    
+    console.log("✅ ShadCN UI dependencies installed successfully");
+  } catch (error) {
+    console.log("⚠️ Could not install all ShadCN UI dependencies");
+  }
+
+  // Add a script to the package.json to add more ShadCN components as needed
+  try {
+    const packageJsonPath = path.join(projectPath, "package.json");
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+    
+    // Add shadcn component installation script
+    packageJson.scripts = packageJson.scripts || {};
+    packageJson.scripts["shadcn"] = "npx shadcn-ui@latest add";
+    
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    
+    console.log("✅ Added ShadCN UI component installation script to package.json");
+    console.log("   To add more components, run: npm run shadcn <component-name>");
+    console.log("   Example: npm run shadcn button");
+  } catch (error) {
+    console.log("⚠️ Could not update package.json with ShadCN UI script");
+  }
+
+  // Create lib directory for ShadCN UI utilities
+  const libDir = path.join(projectPath, "src", "lib");
+  if (!fs.existsSync(libDir)) {
+    fs.mkdirSync(libDir, { recursive: true });
+  }
+  
+  // Create utils.js in lib directory
+  const utilsFile = path.join(libDir, language === "typescript" ? "utils.ts" : "utils.js");
+  fs.writeFileSync(utilsFile, 
+`import { clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+${language === "typescript" ? 'import type { ClassValue } from "clsx";\n' : ''}
+export function cn(${language === "typescript" ? '...inputs: ClassValue[]' : '...inputs'}) {
+  return twMerge(clsx(inputs));
+}`);
+
+  // Create components directory
+  const componentsDir = path.join(projectPath, "src", "components");
+  if (!fs.existsSync(componentsDir)) {
+    fs.mkdirSync(componentsDir, { recursive: true });
+  }
+  
+  // Create ui subdirectory
+  const uiDir = path.join(componentsDir, "ui");
+  if (!fs.existsSync(uiDir)) {
+    fs.mkdirSync(uiDir, { recursive: true });
+  }
+  
+  // Create button component as an example
+  const buttonFile = path.join(uiDir, language === "typescript" ? "button.tsx" : "button.jsx");
+  fs.writeFileSync(buttonFile, 
+`${language === "typescript" ? 'import * as React from "react";\n' : ''}
+import { cn } from "../../lib/utils";
+
+${language === "typescript" ? `
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  size?: "default" | "sm" | "lg" | "icon";
+}
+` : ''}
+
+const Button = ${language === "typescript" ? 'React.forwardRef<HTMLButtonElement, ButtonProps>((' : ''}
+  ({ className, variant = "default", size = "default", ...props }${language === "typescript" ? ', ref' : ''}) => {
+  return (
+    <button
+      className={cn(
+        "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background",
+        variant === "default" && "bg-primary text-primary-foreground hover:bg-primary/90",
+        variant === "destructive" && "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        variant === "outline" && "border border-input hover:bg-accent hover:text-accent-foreground",
+        variant === "secondary" && "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        variant === "ghost" && "hover:bg-accent hover:text-accent-foreground",
+        variant === "link" && "underline-offset-4 hover:underline text-primary",
+        size === "default" && "h-10 py-2 px-4",
+        size === "sm" && "h-9 px-3 rounded-md",
+        size === "lg" && "h-11 px-8 rounded-md",
+        size === "icon" && "h-10 w-10",
+        className
+      )}
+      ${language === "typescript" ? 'ref={ref}' : ''}
+      {...props}
+    />
+  );
+}${language === "typescript" ? ');' : '}'}
+
+${language === "typescript" ? 'Button.displayName = "Button";\n' : ''}
+export { Button };`);
+
+  // Create tailwind.config.js for ShadCN UI
+  if (framework === "next") {
+    const tailwindConfig = path.join(projectPath, "tailwind.config.js");
+    fs.writeFileSync(tailwindConfig, `/** @type {import('tailwindcss').Config} */
+module.exports = {
+  darkMode: ["class"],
+  content: [
+    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
+    extend: {
+      colors: {
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+      keyframes: {
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+      },
+    },
+  },
+  plugins: [require("tailwindcss-animate")],
+}`);
+  } else {
+    const tailwindConfig = path.join(projectPath, "tailwind.config.cjs");
+    fs.writeFileSync(tailwindConfig, `/** @type {import('tailwindcss').Config} */
+module.exports = {
+  darkMode: ["class"],
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
+    extend: {
+      colors: {
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+      keyframes: {
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+      },
+    },
+  },
+  plugins: [require("tailwindcss-animate")],
+}`);
+  }
+  
+  // Add globals.css or index.css styles for ShadCN UI
+  const cssContent = `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+ 
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+ 
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+ 
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+ 
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+ 
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+ 
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+ 
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+ 
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+ 
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+ 
+    --radius: 0.5rem;
+  }
+ 
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+ 
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+ 
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+ 
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+ 
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+ 
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+ 
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+ 
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+ 
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+ 
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}`;
+
+  if (framework === "next") {
+    const globalCss = path.join(projectPath, "src", "app", "globals.css");
+    if (fs.existsSync(globalCss)) {
+      fs.writeFileSync(globalCss, cssContent);
+      console.log("✅ Updated globals.css with ShadCN UI styles");
+    }
+  } else {
+    const indexCss = path.join(projectPath, "src", "index.css");
+    fs.writeFileSync(indexCss, cssContent);
+    console.log("✅ Updated index.css with ShadCN UI styles");
+  }
+  
+  console.log("✅ ShadCN UI setup completed successfully");
 }
 
 function injectBootstrapConfig(projectPath, language, framework) {
