@@ -2,7 +2,6 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-// Create dist directory if it doesn't exist
 const distDir = path.join(__dirname, 'dist');
 if (!fs.existsSync(distDir)) {
   fs.mkdirSync(distDir, { recursive: true });
@@ -10,19 +9,16 @@ if (!fs.existsSync(distDir)) {
 
 console.log('🔨 Building CLI...');
 try {
-  // Build the CLI
   execSync('npx esbuild src/index.js --bundle --platform=node --format=cjs --outfile=dist/cli.js', {
     stdio: 'inherit'
   });
   
-  // Add shebang
   console.log('✍️ Adding shebang...');
   const cliPath = path.join(__dirname, 'dist', 'cli.js');
   let content = fs.readFileSync(cliPath, 'utf8');
   content = '#!/usr/bin/env node\n' + content;
   fs.writeFileSync(cliPath, content);
   
-  // Copy presets
   console.log('📋 Copying presets...');
   const presetsDir = path.join(__dirname, 'presets');
   const targetPresetsDir = path.join(distDir, 'presets');
@@ -40,11 +36,8 @@ try {
     }
   });
   
-  // Install globally
   console.log('📦 Installing CLI globally...');
   
-  // On Windows, npm can have issues with global installs sometimes
-  // This is a more reliable way to do it
   console.log('📦 Linking CLI locally...');
   execSync('npm link', { stdio: 'inherit' });
   

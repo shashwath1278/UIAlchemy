@@ -11,7 +11,7 @@ const dependencies = {
     "@chakra-ui/react@2.8.2",
     "@emotion/react@11.11.3",
     "@emotion/styled@11.11.0",
-    "framer-motion@10.18.0"
+    "framer-motion@10.18.0" 
   ],
   shadeflow: ["tailwindcss@3.4.1", "postcss@8.4.35", "autoprefixer@10.4.17"],
   daisyworld: ["tailwindcss@3.4.1", "postcss@8.4.35", "autoprefixer@10.4.17", "daisyui@4.4.19"],
@@ -25,6 +25,9 @@ const projectName = args[0];
 let presetType = args[1];
 let language = args[2];
 let framework = args[3];
+
+// Import the prompts configuration
+const promptsConfig = require('./prompts');
 
 async function run() {
   if (!projectName) {
@@ -83,6 +86,22 @@ async function run() {
 
   console.log(`🚀 Creating ${framework} project with ${language}: ${projectName}`);
   
+  // Get framework-specific prompts
+  const additionalPrompts = promptsConfig.getPromptsByFramework(framework);
+
+  // Filter out framer-motion prompt if using chakraflow preset since it's a required dependency
+  const filteredPrompts = presetType === "chakraflow" 
+    ? additionalPrompts.filter(prompt => prompt.name !== 'installFramerMotion')
+    : additionalPrompts;
+
+  // If using chakraflow, let the user know framer-motion will be installed automatically
+  if (presetType === "chakraflow") {
+    console.log("ℹ️ Note: framer-motion will be installed automatically as it's required by Chakra UI");
+  }
+
+  // Ask additional installation questions
+  const promptAnswers = await inquirer.prompt(filteredPrompts);
+
   try {
     if (framework === "next") {
       const typeFlag = language === "typescript" ? "--ts" : "--js";
@@ -110,6 +129,15 @@ async function run() {
     const appTemplate = fs.readFileSync(appTemplatePath, 'utf-8');
     
     console.log(`✅ Installing dependencies for preset: ${presetType}`);
+    
+    // Ensure framer-motion is installed when using chakraflow
+    if (presetType === "chakraflow") {
+      if (!dependencies.chakraflow.some(dep => dep.startsWith("framer-motion"))) {
+        console.log("⚠️ Adding required dependency: framer-motion");
+        dependencies.chakraflow.push("framer-motion@10.18.0");
+      }
+    }
+    
     execSync(`npm install ${dependencies[presetType].join(" ")} --legacy-peer-deps`, {
       cwd: projectPath,
       stdio: "inherit",
@@ -276,6 +304,98 @@ async function run() {
       case "chakraflow":
         injectChakraConfig(projectPath, language, framework);
         break;
+    }
+
+    // Use the promptAnswers to install additional packages
+    // Also make sure that if the user selected to install framer-motion separately, 
+    // we don't try to install it again if it's already part of the dependencies
+    if (promptAnswers.installFramerMotion && 
+        !(presetType === "chakraflow" || dependencies[presetType].some(dep => dep.startsWith("framer-motion")))) {
+      console.log('📦 Installing framer-motion...');
+      execSync(`npm install framer-motion --legacy-peer-deps`, {
+        cwd: projectPath,
+        stdio: "inherit",
+      });
+    }
+    
+    if (promptAnswers.installReactRouter && framework.toLowerCase().includes('react')) {
+      console.log('📦 Installing react-router-dom...');
+      execSync(`npm install react-router-dom --legacy-peer-deps`, {
+        cwd: projectPath,
+        stdio: "inherit",
+      });
+    }
+    
+    if (promptAnswers.installJwtAuth) {
+      console.log('📦 Setting up JWT authentication...');
+      try {
+        execSync(`npm install jsonwebtoken --legacy-peer-deps`, {
+          cwd: projectPath,
+          stdio: "inherit",
+        });
+        
+        // Create a sample JWT utility file
+        const authDir = path.join(projectPath, 'src', 'lib', 'auth');
+        if (!fs.existsSync(authDir)) {
+          fs.mkdirSync(authDir, { recursive: true });
+        }
+        
+        const jwtUtilFile = path.join(authDir, language === "typescript" ? "jwt.ts" : "jwt.js");
+        fs.writeFileSync(jwtUtilFile, 
+          language === "typescript" ? 
+          `import jwt from 'jsonwebtoken';
+
+interface TokenPayload {
+  userId: string;
+  email: string;
+  [key: string]: any;
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+export function createToken(payload: TokenPayload): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
+}
+
+export function verifyToken(token: string): TokenPayload | null {
+  try {
+    return jwt.verify(token, JWT_SECRET) as TokenPayload;
+  } catch (error) {
+    return null;
+  }
+}
+` : 
+          `const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+function createToken(payload) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
+}
+
+function verifyToken(token) {
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    return null;
+  }
+
+module.exports = { createToken, verifyToken };
+`);
+        console.log('✅ JWT utilities created in src/lib/auth/');
+        
+        // Create .env file with JWT secret
+        const envFilePath = path.join(projectPath, '.env.local');
+        if (!fs.existsSync(envFilePath)) {
+          const randomSecret = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+          fs.writeFileSync(envFilePath, `JWT_SECRET=${randomSecret}\n`);
+          console.log('✅ Created .env.local with JWT secret');
+        }
+        
+      } catch (error) {
+        console.error(`❌ Error installing JWT authentication: ${error.message}`);
+        console.log('⚠️ You can manually install it later with: npm install jsonwebtoken --legacy-peer-deps');
+      }
     }
 
     console.log("🎉 Done! Now run:");

@@ -24,7 +24,7 @@ function App() {
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider trigger={null} collapsible collapsed={collapsed}>
-        <div className="demo-logo-vertical" style={{ height: '32px', margin: '16px', background: 'rgba(255,255,255,0.2)' }} />
+      <div className="demo-logo-vertical" style={{ color:'white' ,textAlign:"center",marginTop:'10px' }} ><h1>Ant Design</h1></div>
         <Menu
           theme="dark"
           mode="inline"

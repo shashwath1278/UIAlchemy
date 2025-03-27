@@ -32615,6 +32615,42 @@ var require_inquirer = __commonJS({
   }
 });
 
+// src/prompts.js
+var require_prompts = __commonJS({
+  "src/prompts.js"(exports2, module2) {
+    module2.exports = {
+      commonPrompts: [
+        {
+          type: "confirm",
+          name: "installFramerMotion",
+          message: "Would you like to install framer-motion?",
+          default: false
+        },
+        {
+          type: "confirm",
+          name: "installJwtAuth",
+          message: "Would you like to add JWT authentication utilities?",
+          default: false
+        }
+      ],
+      reactPrompts: [
+        {
+          type: "confirm",
+          name: "installReactRouter",
+          message: "Would you like to install react-router-dom?",
+          default: false
+        }
+      ],
+      getPromptsByFramework(framework2) {
+        if (framework2.toLowerCase().includes("react")) {
+          return [...this.commonPrompts, ...this.reactPrompts];
+        }
+        return this.commonPrompts;
+      }
+    };
+  }
+});
+
 // src/helpers.js
 var require_helpers = __commonJS({
   "src/helpers.js"(exports2, module2) {
@@ -32771,6 +32807,7 @@ var projectName = args[0];
 var presetType = args[1];
 var language = args[2];
 var framework = args[3];
+var promptsConfig = require_prompts();
 async function run() {
   if (!projectName) {
     console.log("\u274C Please provide a project name");
@@ -32820,6 +32857,12 @@ async function run() {
     process.exit(1);
   }
   console.log(`\u{1F680} Creating ${framework} project with ${language}: ${projectName}`);
+  const additionalPrompts = promptsConfig.getPromptsByFramework(framework);
+  const filteredPrompts = presetType === "chakraflow" ? additionalPrompts.filter((prompt) => prompt.name !== "installFramerMotion") : additionalPrompts;
+  if (presetType === "chakraflow") {
+    console.log("\u2139\uFE0F Note: framer-motion will be installed automatically as it's required by Chakra UI");
+  }
+  const promptAnswers = await inquirer.prompt(filteredPrompts);
   try {
     if (framework === "next") {
       const typeFlag = language === "typescript" ? "--ts" : "--js";
@@ -32841,6 +32884,12 @@ async function run() {
     }
     const appTemplate = fs.readFileSync(appTemplatePath, "utf-8");
     console.log(`\u2705 Installing dependencies for preset: ${presetType}`);
+    if (presetType === "chakraflow") {
+      if (!dependencies.chakraflow.some((dep) => dep.startsWith("framer-motion"))) {
+        console.log("\u26A0\uFE0F Adding required dependency: framer-motion");
+        dependencies.chakraflow.push("framer-motion@10.18.0");
+      }
+    }
     execSync(`npm install ${dependencies[presetType].join(" ")} --legacy-peer-deps`, {
       cwd: projectPath,
       stdio: "inherit"
@@ -32979,6 +33028,86 @@ async function run() {
         injectChakraConfig(projectPath, language, framework);
         break;
     }
+    if (promptAnswers.installFramerMotion && !(presetType === "chakraflow" || dependencies[presetType].some((dep) => dep.startsWith("framer-motion")))) {
+      console.log("\u{1F4E6} Installing framer-motion...");
+      execSync(`npm install framer-motion --legacy-peer-deps`, {
+        cwd: projectPath,
+        stdio: "inherit"
+      });
+    }
+    if (promptAnswers.installReactRouter && framework.toLowerCase().includes("react")) {
+      console.log("\u{1F4E6} Installing react-router-dom...");
+      execSync(`npm install react-router-dom --legacy-peer-deps`, {
+        cwd: projectPath,
+        stdio: "inherit"
+      });
+    }
+    if (promptAnswers.installJwtAuth) {
+      console.log("\u{1F4E6} Setting up JWT authentication...");
+      try {
+        execSync(`npm install jsonwebtoken --legacy-peer-deps`, {
+          cwd: projectPath,
+          stdio: "inherit"
+        });
+        const authDir = path.join(projectPath, "src", "lib", "auth");
+        if (!fs.existsSync(authDir)) {
+          fs.mkdirSync(authDir, { recursive: true });
+        }
+        const jwtUtilFile = path.join(authDir, language === "typescript" ? "jwt.ts" : "jwt.js");
+        fs.writeFileSync(
+          jwtUtilFile,
+          language === "typescript" ? `import jwt from 'jsonwebtoken';
+
+interface TokenPayload {
+  userId: string;
+  email: string;
+  [key: string]: any;
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+export function createToken(payload: TokenPayload): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
+}
+
+export function verifyToken(token: string): TokenPayload | null {
+  try {
+    return jwt.verify(token, JWT_SECRET) as TokenPayload;
+  } catch (error) {
+    return null;
+  }
+}
+` : `const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+function createToken(payload) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
+}
+
+function verifyToken(token) {
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    return null;
+  }
+
+module.exports = { createToken, verifyToken };
+`
+        );
+        console.log("\u2705 JWT utilities created in src/lib/auth/");
+        const envFilePath = path.join(projectPath, ".env.local");
+        if (!fs.existsSync(envFilePath)) {
+          const randomSecret = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+          fs.writeFileSync(envFilePath, `JWT_SECRET=${randomSecret}
+`);
+          console.log("\u2705 Created .env.local with JWT secret");
+        }
+      } catch (error) {
+        console.error(`\u274C Error installing JWT authentication: ${error.message}`);
+        console.log("\u26A0\uFE0F You can manually install it later with: npm install jsonwebtoken --legacy-peer-deps");
+      }
+    }
     console.log("\u{1F389} Done! Now run:");
     console.log(`cd ${projectName}`);
     console.log(`npm run dev`);
@@ -33014,9 +33143,9 @@ module.exports = {
     }
     const globalCss = path.join(projectPath, "src", "app", "globals.css");
     if (fs.existsSync(globalCss)) {
-      const cssContent = fs.readFileSync(globalCss, "utf-8");
-      if (!cssContent.includes("@tailwind base")) {
-        let cleanedContent = cssContent.replace(/@import\s+['"]tailwindcss.*?;/g, "");
+      const cssContent2 = fs.readFileSync(globalCss, "utf-8");
+      if (!cssContent2.includes("@tailwind base")) {
+        let cleanedContent = cssContent2.replace(/@import\s+['"]tailwindcss.*?;/g, "");
         const tailwindDirectives = `@tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -33067,6 +33196,337 @@ export default defineConfig({
 @tailwind utilities;`);
   }
   console.log("\u2705 Tailwind CSS and Shadeflow configuration files injected successfully");
+  console.log("\u{1F527} Setting up ShadCN UI components...");
+  console.log("\u{1F4E6} Installing ShadCN UI dependencies...");
+  try {
+    execSync(`npm install class-variance-authority clsx tailwind-merge tailwindcss-animate lucide-react`, {
+      cwd: projectPath,
+      stdio: "inherit"
+    });
+    execSync(`npm install @radix-ui/react-slot @radix-ui/react-dialog @radix-ui/react-dropdown-menu @radix-ui/react-toast`, {
+      cwd: projectPath,
+      stdio: "inherit"
+    });
+    console.log("\u2705 ShadCN UI dependencies installed successfully");
+  } catch (error) {
+    console.log("\u26A0\uFE0F Could not install all ShadCN UI dependencies");
+  }
+  try {
+    const packageJsonPath = path.join(projectPath, "package.json");
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
+    packageJson.scripts = packageJson.scripts || {};
+    packageJson.scripts["shadcn"] = "npx shadcn-ui@latest add";
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    console.log("\u2705 Added ShadCN UI component installation script to package.json");
+    console.log("   To add more components, run: npm run shadcn <component-name>");
+    console.log("   Example: npm run shadcn button");
+  } catch (error) {
+    console.log("\u26A0\uFE0F Could not update package.json with ShadCN UI script");
+  }
+  const libDir = path.join(projectPath, "src", "lib");
+  if (!fs.existsSync(libDir)) {
+    fs.mkdirSync(libDir, { recursive: true });
+  }
+  const utilsFile = path.join(libDir, language2 === "typescript" ? "utils.ts" : "utils.js");
+  fs.writeFileSync(
+    utilsFile,
+    `import { clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+${language2 === "typescript" ? 'import type { ClassValue } from "clsx";\n' : ""}
+export function cn(${language2 === "typescript" ? "...inputs: ClassValue[]" : "...inputs"}) {
+  return twMerge(clsx(inputs));
+}`
+  );
+  const componentsDir = path.join(projectPath, "src", "components");
+  if (!fs.existsSync(componentsDir)) {
+    fs.mkdirSync(componentsDir, { recursive: true });
+  }
+  const uiDir = path.join(componentsDir, "ui");
+  if (!fs.existsSync(uiDir)) {
+    fs.mkdirSync(uiDir, { recursive: true });
+  }
+  const buttonFile = path.join(uiDir, language2 === "typescript" ? "button.tsx" : "button.jsx");
+  fs.writeFileSync(
+    buttonFile,
+    `${language2 === "typescript" ? 'import * as React from "react";\n' : ""}
+import { cn } from "../../lib/utils";
+
+${language2 === "typescript" ? `
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  size?: "default" | "sm" | "lg" | "icon";
+}
+` : ""}
+
+const Button = ${language2 === "typescript" ? "React.forwardRef<HTMLButtonElement, ButtonProps>((" : ""}
+  ({ className, variant = "default", size = "default", ...props }${language2 === "typescript" ? ", ref" : ""}) => {
+  return (
+    <button
+      className={cn(
+        "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background",
+        variant === "default" && "bg-primary text-primary-foreground hover:bg-primary/90",
+        variant === "destructive" && "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        variant === "outline" && "border border-input hover:bg-accent hover:text-accent-foreground",
+        variant === "secondary" && "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        variant === "ghost" && "hover:bg-accent hover:text-accent-foreground",
+        variant === "link" && "underline-offset-4 hover:underline text-primary",
+        size === "default" && "h-10 py-2 px-4",
+        size === "sm" && "h-9 px-3 rounded-md",
+        size === "lg" && "h-11 px-8 rounded-md",
+        size === "icon" && "h-10 w-10",
+        className
+      )}
+      ${language2 === "typescript" ? "ref={ref}" : ""}
+      {...props}
+    />
+  );
+}${language2 === "typescript" ? ");" : "}"}
+
+${language2 === "typescript" ? 'Button.displayName = "Button";\n' : ""}
+export { Button };`
+  );
+  if (framework2 === "next") {
+    const tailwindConfig = path.join(projectPath, "tailwind.config.js");
+    fs.writeFileSync(tailwindConfig, `/** @type {import('tailwindcss').Config} */
+module.exports = {
+  darkMode: ["class"],
+  content: [
+    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
+    extend: {
+      colors: {
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+      keyframes: {
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+      },
+    },
+  },
+  plugins: [require("tailwindcss-animate")],
+}`);
+  } else {
+    const tailwindConfig = path.join(projectPath, "tailwind.config.cjs");
+    fs.writeFileSync(tailwindConfig, `/** @type {import('tailwindcss').Config} */
+module.exports = {
+  darkMode: ["class"],
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
+    extend: {
+      colors: {
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+      keyframes: {
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+      },
+    },
+  },
+  plugins: [require("tailwindcss-animate")],
+}`);
+  }
+  const cssContent = `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+ 
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+ 
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+ 
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+ 
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+ 
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+ 
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+ 
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+ 
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+ 
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+ 
+    --radius: 0.5rem;
+  }
+ 
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+ 
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+ 
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+ 
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+ 
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+ 
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+ 
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+ 
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+ 
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+ 
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}`;
+  if (framework2 === "next") {
+    const globalCss = path.join(projectPath, "src", "app", "globals.css");
+    if (fs.existsSync(globalCss)) {
+      fs.writeFileSync(globalCss, cssContent);
+      console.log("\u2705 Updated globals.css with ShadCN UI styles");
+    }
+  } else {
+    const indexCss = path.join(projectPath, "src", "index.css");
+    fs.writeFileSync(indexCss, cssContent);
+    console.log("\u2705 Updated index.css with ShadCN UI styles");
+  }
+  console.log("\u2705 ShadCN UI setup completed successfully");
 }
 function injectBootstrapConfig(projectPath, language2, framework2) {
   if (framework2 === "next") {
