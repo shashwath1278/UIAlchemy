@@ -1,242 +1,169 @@
-# Create UI App CLI
+# UI Alchemy
 
-A powerful CLI tool that generates React applications with pre-configured UI libraries and stunning templates. Skip the boilerplate and start building beautiful UIs instantly.
-It is published on NPM and can be installed globally on any machine terminal.
+<p align="center">
+  <img src="./assets/ui-alchemy-logo.png" alt="UI Alchemy Logo" width="200" />
+</p>
 
-## 🌟 Features
+<p align="center">
+  <strong>Transform your React development workflow with a touch of magic ✨</strong>
+</p>
 
-- **Language Support**
-  - JavaScript (React and Next.js)
-  - TypeScript (React and Next.js with TypeScript)
-  
-- **Six Popular UI Libraries**
-  - Chakra UI (chakraflow)
-  - Tailwind CSS + ShadCN (shadeflow)
-  - Tailwind CSS + DaisyUI (daisyworld)
-  - Ant Design (antverse)
-  - Bootstrap (bootflow)
-  - PrimeReact (primeland)
+<p align="center">
+  <a href="#installation">Installation</a> •
+  <a href="#features">Features</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#templates">Templates</a> •
+  <a href="#ui-stacks">UI Stacks</a> •
+  <a href="#contributing">Contributing</a> •
+  <a href="#license">License</a>
+</p>
 
-- **Zero Configuration**
-  - Pre-configured themes
-  - Ready-to-use templates
-  - Automatic dependency installation
-  - Built with Vite or Next.js for lightning-fast development
-
-## 📦 NPM Package
-
-[![NPM Version](https://img.shields.io/npm/v/create-ui-app-cli.svg?style=flat)](https://www.npmjs.com/package/create-ui-app-cli)
-[![NPM Downloads](https://img.shields.io/npm/dm/create-ui-app-cli.svg?style=flat)](https://www.npmjs.com/package/create-ui-app-cli)
-
-**[View on NPM](https://www.npmjs.com/package/create-ui-app-cli)**
-
-## ⚡ Quick Use (No git cloning required)
-
-Just go to your editor(vs code) terminal and use these commands
+## Installation
 
 ```bash
-# Install globally
-npm install -g create-ui-app-cli
+npm install -g ui-alchemy
+```
 
-# Create a new project
+## Features
+
+- 🚀 **Instant Project Setup** - Bootstrap complete React/Next.js applications in seconds
+- 🧩 **Component Generation** - Create consistent component structures with a single command
+- 🎭 **Animation Integration** - Seamlessly add Framer Motion with pre-built animations
+- 🔒 **Authentication Ready** - Built-in JWT authentication utilities
+- 🧰 **Multiple UI Libraries** - Support for popular UI frameworks (Tailwind, Ant Design, and more)
+- 🔄 **Routing Setup** - Automatic React Router DOM configuration
+- 🎨 **Custom Templates** - Define and use your own project and component templates
+
+## Usage
+
+### Creating a new project
+
+```bash
 create-ui-app my-app
 ```
 
-## 📦 Installation
+Follow the interactive prompts to select your preferred:
+- Framework (React, Next.js)
+- Language (JavaScript, TypeScript)
+- UI Stack (Material UI, Tailwind CSS, Ant Design, and more)
+- Additional features (Framer Motion, JWT Authentication, etc.)
+
+### Generating components
 
 ```bash
-# Clone the repository
-git clone https://github.com/shashwath1278/UIAlchemy.git
-
-# Install dependencies
-cd UIAlchemy
-npm install
-
-# Link the CLI for global usage
-npm link
+ui-alchemy create-component Button
 ```
 
-## 🚀 Quick Start
+Options:
+- `--style=tailwind` - Add Tailwind CSS styles
+- `--animate` - Include Framer Motion animations
+- `--test` - Generate test files
+
+### Adding features to existing projects
 
 ```bash
-# Create a new project (interactive mode)
-create-ui-app my-app
-
-# Or specify all options directly
-create-ui-app my-app chakraflow javascript next
-
-# Navigate to project
-cd my-app
-
-# Start development server
-npm run dev
+ui-alchemy add auth
 ```
 
-## 📁 Project Structure
+Adds authentication utilities including:
+- JWT token handling
+- Protected routes
+- Login/Register components
+- User context
 
-```
-create-ui-app-cli/
-├── src/               # CLI source code
-│   └── index.js      # Main CLI logic
-├── presets/          # UI library templates
-│   ├── chakraflow.jsx
-│   ├── shadeflow.jsx
-│   ├── daisyworld.jsx
-│   ├── antverse.jsx
-│   ├── bootflow.jsx
-│   └── primeland.jsx
-├── scripts/          # Build scripts
-│   ├── fix-shebang.js
-│   └── copy-presets.js
-└── dist/             # Built files
-    ├── cli.js
-    └── presets/      # Compiled templates
-
-Generated Project Structure:
-my-app/
-├── src/
-│   ├── App.{jsx,tsx}      # Main component with UI library setup
-│   ├── main.{jsx,tsx}     # Entry point
-│   ├── theme.{js,ts}      # Theme configuration (if applicable)
-│   └── index.css          # Global styles
-├── public/
-├── package.json
-├── vite.config.{js,ts}
-└── tsconfig.json          # TypeScript configuration (if TypeScript selected)
+```bash
+ui-alchemy add animations
 ```
 
-## 🎨 Available Presets
+Adds Framer Motion with:
+- Page transitions
+- Scroll animations
+- Interactive components
 
-### chakraflow
-- Chakra UI with theme setup
-- Responsive components
-- Color mode support
+## Templates
 
-### shadeflow
-- Tailwind CSS configuration
-- ShadCN UI integration
-- Modern gradient design
+UI Alchemy comes with several built-in templates:
 
-### daisyworld
-- Tailwind CSS configuration
-- DaisyUI integration
-- Beautiful component library
+### Project Templates
+- **basic-react** - Clean React setup with React Router DOM
+- **next-app** - Next.js App Router setup
+- **next-pages** - Next.js Pages Router setup
 
-### antverse
-- Ant Design integration
-- Enterprise-ready components
-- Customizable theme tokens
+### UI Stack Templates
+- **tailwind** - Tailwind CSS with common utility patterns
+- **material** - Material UI with theming
+- **antverse** - Ant Design with custom components
+- **vanilla** - No UI framework, just clean CSS
 
-### bootflow
-- Bootstrap 5 setup
-- Responsive grid system
-- SCSS variables configuration
+### Authentication Templates
+- **jwt-auth** - Complete JWT authentication flow
+- **firebase-auth** - Firebase Authentication integration
+- **auth0** - Auth0 integration
 
-### primeland
-- PrimeReact components
-- Theme customization
-- Built-in icons
+## UI Stacks
 
-## Using ShadCN UI in your project
+UI Alchemy offers six carefully crafted UI stacks to match your project needs:
 
-When you create a project with the `shadeflow` preset, the CLI automatically sets up the infrastructure needed for ShadCN UI:
+| UI Stack | Components & Features | Best For | Configuration |
+|----------|----------------------|----------|---------------|
+| **Tailwind** | • Utility-first CSS<br>• Pre-configured colors & spacing<br>• Custom component classes<br>• Dark mode toggle<br>• Responsive utilities | • Rapid prototyping<br>• Custom designs<br>• Performance-critical apps<br>• Developers who prefer CSS control | `--style=tailwind` |
+| **Material UI** | • Complete MUI component library<br>• Theme customization<br>• Dark/light themes<br>• Form components<br>• Data display components | • Enterprise applications<br>• Admin dashboards<br>• Data-heavy interfaces<br>• Teams familiar with Material Design | `--style=material` |
+| **Ant Design** | • Enterprise-grade components<br>• Data visualization<br>• Form validation<br>• Layout systems<br>• Internationalization | • Admin panels<br>• Data-rich dashboards<br>• Enterprise apps<br>• Complex form systems | `--style=antverse` |
+| **Chakra UI** | • Accessible components<br>• Customizable theme<br>• Color mode support<br>• Responsive styles<br>• Layout primitives | • Accessibility-focused apps<br>• Component-driven projects<br>• Modern, clean interfaces<br>• Rapid development cycles | `--style=chakra` |
+| **Shadcn/UI** | • Unstyled, accessible components<br>• Radix UI primitives<br>• Copy-paste usage<br>• Tailwind integration<br>• Fully customizable | • Design system integration<br>• Unique brand identity<br>• Component-first development<br>• Design customization needed | `--style=shadcn` |
+| **Vanilla** | • Clean, minimal CSS<br>• CSS variables<br>• No dependencies<br>• CSS modules support<br>• Lightweight setup | • Performance-critical apps<br>• Learning environments<br>• Full design customization<br>• Minimizing dependencies | `--style=vanilla` |
 
-### 1. Use the pre-installed Button component
+Each UI stack comes with:
+- Pre-configured theme setup
+- Common layout components
+- Responsive navigation
+- Optimized performance settings
+- Documentation links and examples
 
-A Button component is automatically created in your project at `src/components/ui/button.tsx`. You can import and use it like this:
+### Style Combination Examples
 
-```tsx
-import { Button } from "./components/ui/button";
+UI Alchemy allows combining styles with other features:
 
-function MyComponent() {
-  return (
-    <div>
-      <Button>Default Button</Button>
-      <Button variant="destructive">Destructive Button</Button>
-      <Button variant="outline">Outline Button</Button>
-      <Button variant="secondary">Secondary Button</Button>
-      <Button variant="ghost">Ghost Button</Button>
-      <Button variant="link">Link Button</Button>
-    </div>
-  );
+```bash
+# Create a Next.js app with Tailwind and Framer Motion
+create-ui-app my-app --framework=next --style=tailwind --animate
+
+# Create a React app with Material UI and JWT authentication
+create-ui-app my-app --framework=react --style=material --auth=jwt
+
+# Add Chakra UI to an existing React project
+ui-alchemy add style --chakra
+```
+
+## Configuration
+
+Create a `.uialchemyrc.json` file in your project root to customize templates and settings:
+
+```json
+{
+  "componentPath": "src/components",
+  "componentTemplate": "functional",
+  "testFramework": "jest",
+  "cssPreprocessor": "scss"
 }
 ```
 
-### 2. Add more ShadCN components
+## Contributing
 
-The project has been set up with a convenience script to add more ShadCN components:
-
-```bash
-# Add a single component
-npm run shadcn@latest card
-
-# Add multiple components
-npm run shadcn@latest dialog dropdown-menu toast
-
-# Add a component with its dependencies automatically
-npm run shadcn@latest calendar
-```
-
-This will add the components to your `src/components/ui` directory, ready to use.
-
-### 3. Customize components
-
-One of the advantages of ShadCN UI is that all component source code is in your project. To customize a component:
-
-1. Navigate to the component file (e.g., `src/components/ui/button.tsx`)
-2. Modify the component code to suit your needs
-3. The changes will apply everywhere the component is used
-
-### 4. Theme customization
-
-ShadCN UI uses CSS variables for theming. You can customize the theme by modifying:
-
-- For React: `src/index.css`
-- For Next.js: `src/app/globals.css`
-
-Look for the `:root` and `.dark` selectors to modify colors, border radius, etc.
-
-### 5. Learn more about ShadCN UI
-
-For more information, visit [ui.shadcn.com](https://ui.shadcn.com/)
-
-## 🔧 Development
-
-```bash
-# Clone the repository
-git clone https://github.com/shashwath1278/UIAlchemy.git
-
-# Install dependencies
-npm install
-
-# Build the CLI
-npm run build
-
-# Link for local testing
-npm link
-
-# Run tests
-npm test
-```
-
-## 📚 Documentation Links
-
-- [Chakra UI](https://chakra-ui.com/docs)
-- [Tailwind CSS](https://tailwindcss.com/docs)
-- [ShadCN](https://ui.shadcn.com/)
-- [DaisyUI](https://daisyui.com/)
-- [Ant Design](https://ant.design/docs/react/introduce)
-- [Bootstrap](https://getbootstrap.com/docs/)
-- [PrimeReact](https://primereact.org/)
-
-## 📄 License
-
-MIT © shashwath1278
-
-## 🤝 Contributing
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a pull request
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+
+<p align="center">
+  Made with ❤️ by [Your Name]
+</p>
